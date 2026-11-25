@@ -1,26 +1,64 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #f5f8fa;
+  --panel: #ffffff;
+  --panel-2: #f8fafb;
+  --text: #14222e;
+  --muted: #72808e;
+  --line: #e8edf0;
+  --primary: #168bd0;
+  --cyan: #20c9db;
+  --aqua: #42c8c2;
+  --deep-1: #092d40;
+  --deep-2: #0c4560;
+  --deep-3: #106581;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-geist-sans), Inter, "Segoe UI", system-ui, sans-serif;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #20c9db, #168bd0);
+  color: #ffffff;
+  box-shadow: 0 7px 18px rgba(22, 139, 208, 0.22);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(22, 139, 208, 0.28);
+}
+
+.btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.hero-ocean {
+  background: linear-gradient(120deg, #092d40, #0c4560 58%, #106581);
+}
+
+.card-panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.progress-fill {
+  background: linear-gradient(90deg, #2bc9cf, #178bd0);
 }
