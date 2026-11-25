@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
   Pencil,
@@ -11,6 +11,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Lock,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   formatCebuDate,
@@ -18,6 +20,8 @@ import {
   isoToCebuDateAndTime,
   cebuDateAndTimeToIso,
 } from "@/lib/time";
+import { CubeDatePicker } from "./CubeDatePicker";
+import { CubeSelect } from "./CubeSelect";
 import type { DashboardEvent, EventStatus, StaffUser } from "@/lib/types";
 
 interface EventFormState {
@@ -31,6 +35,14 @@ interface EventFormState {
   capacity: number;
   status: EventStatus;
 }
+
+const STATUS_ORDER: Record<EventStatus, number> = {
+  published: 0,
+  draft: 1,
+  closed: 2,
+};
+
+const PAGE_SIZE = 12;
 
 function defaultForm(): EventFormState {
   const today = isoToCebuDateAndTime(new Date().toISOString()).date;
@@ -51,12 +63,39 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
   const [events, setEvents] = useState<DashboardEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | EventStatus>("all");
+  const [page, setPage] = useState(1);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<EventFormState>(defaultForm());
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Notice banner with smooth 4-second fade-out
   const [notice, setNotice] = useState<string | null>(null);
+  const [noticeFading, setNoticeFading] = useState(false);
+  const fadeTimerRef = useRef<number | null>(null);
+  const clearTimerRef = useRef<number | null>(null);
+
+  const showNotice = (message: string) => {
+    if (fadeTimerRef.current) window.clearTimeout(fadeTimerRef.current);
+    if (clearTimerRef.current) window.clearTimeout(clearTimerRef.current);
+    setNotice(message);
+    setNoticeFading(false);
+    fadeTimerRef.current = window.setTimeout(() => {
+      setNoticeFading(true);
+    }, 3300);
+    clearTimerRef.current = window.setTimeout(() => {
+      setNotice(null);
+      setNoticeFading(false);
+    }, 4000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (fadeTimerRef.current) window.clearTimeout(fadeTimerRef.current);
+      if (clearTimerRef.current) window.clearTimeout(clearTimerRef.current);
+    };
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -110,6 +149,24 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
     setModalOpen(true);
   };
 
+  // If organizer extends a closed event's date/end time into the future,
+  // automatically flip status back to Published so it becomes visible to attendees again.
+  const updateScheduleField = (
+    field: "date" | "startTime" | "endTime",
+    value: string
+  ) => {
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (prev.status === "closed" && next.date && next.endTime) {
+        const newEnd = new Date(cebuDateAndTimeToIso(next.date, next.endTime));
+        if (!Number.isNaN(newEnd.getTime()) && newEnd.getTime() > Date.now()) {
+          next.status = "published";
+        }
+      }
+      return next;
+    });
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -132,6 +189,12 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
       return;
     }
 
+    // If end time is already in the past and status was set to published, save as closed
+    const effectiveStatus: EventStatus =
+      form.status === "published" && new Date(ends_at).getTime() <= Date.now()
+        ? "closed"
+        : form.status;
+
     setSaving(true);
     try {
       const url = form.id ? `/api/staff/events/${form.id}` : "/api/staff/events";
@@ -147,7 +210,7 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
           starts_at,
           ends_at,
           capacity: form.capacity,
-          status: form.status,
+          status: effectiveStatus,
         }),
       });
       const data = await res.json();
@@ -157,7 +220,7 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
       }
 
       setModalOpen(false);
-      setNotice(
+      showNotice(
         form.id
           ? `Updated "${form.title}" successfully.`
           : `Created "${form.title}" successfully.`
@@ -170,8 +233,24 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
     }
   };
 
-  const filtered =
-    filter === "all" ? events : events.filter((e) => e.status === filter);
+  const filtered = useMemo(() => {
+    const base =
+      filter === "all" ? events : events.filter((e) => e.status === filter);
+    return [...base].sort((a, b) => {
+      const diff = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+      if (diff !== 0) return diff;
+      return new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime();
+    });
+  }, [events, filter]);
+
+  const totalFiltered = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const startIdx = (safePage - 1) * PAGE_SIZE;
+  const paginatedEvents = filtered.slice(startIdx, startIdx + PAGE_SIZE);
+  const shownCount = paginatedEvents.length;
+  const rangeStart = totalFiltered === 0 ? 0 : startIdx + 1;
+  const rangeEnd = startIdx + shownCount;
 
   return (
     <div className="space-y-6">
@@ -184,8 +263,8 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
             Events
           </h1>
           <p className="mt-1 text-xs text-[#72808e]">
-            Only <strong>Published</strong> events appear to attendees. Closed
-            events stop accepting registrations.
+            Only <strong>Published</strong> upcoming events appear to attendees.
+            Events past their end time are automatically closed until extended.
           </p>
         </div>
 
@@ -207,28 +286,41 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
       </div>
 
       {notice && (
-        <div className="flex items-center justify-between rounded-xl border border-[#b8efea] bg-[#e1f9f6] px-4 py-3 text-xs font-bold text-[#057b74]">
+        <div
+          className={`flex items-center justify-between rounded-xl border border-[#b8efea] bg-[#e1f9f6] px-4 py-3 text-xs font-bold text-[#057b74] transition-opacity duration-700 ${
+            noticeFading ? "opacity-0" : "opacity-100"
+          }`}
+        >
           <span className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4" />
             {notice}
           </span>
-          <button type="button" onClick={() => setNotice(null)}>
+          <button
+            type="button"
+            onClick={() => {
+              setNotice(null);
+              setNoticeFading(false);
+            }}
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
       )}
 
       {/* Status Filter */}
-      <div className="inline-flex rounded-xl border border-[#e8edf0] bg-white p-1 text-xs font-bold">
+      <div className="inline-flex gap-1 rounded-xl border border-[#e8edf0] bg-white p-1 text-xs font-bold shadow-2xs">
         {(["all", "published", "draft", "closed"] as const).map((tab) => (
           <button
             key={tab}
             type="button"
-            onClick={() => setFilter(tab)}
-            className={`rounded-lg px-3 py-1.5 capitalize transition ${
+            onClick={() => {
+              setFilter(tab);
+              setPage(1);
+            }}
+            className={`rounded-lg px-3.5 py-1.5 capitalize transition ${
               filter === tab
-                ? "bg-[#e1f6fb] text-[#0878ba]"
-                : "text-[#72808e] hover:text-[#14222e]"
+                ? "bg-gradient-to-r from-[#20c9db]/20 to-[#168bd0]/15 text-[#0878ba] ring-1 ring-[#20c9db]/40"
+                : "text-[#72808e] hover:bg-[#f8fafb] hover:text-[#14222e]"
             }`}
           >
             {tab}
@@ -236,7 +328,7 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
         ))}
       </div>
 
-      {/* Event Cards */}
+      {/* Event Cards (12 per page) */}
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
@@ -246,95 +338,139 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
             />
           ))}
         </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((ev) => (
-            <div
-              key={ev.id}
-              className="card-panel relative flex flex-col overflow-hidden p-5"
-            >
-              <div
-                className={`absolute inset-x-0 top-0 h-1 ${
-                  ev.status === "published"
-                    ? "bg-gradient-to-r from-[#20c9db] to-[#168bd0]"
-                    : ev.status === "draft"
-                      ? "bg-[#e59a38]"
-                      : "bg-[#9ba8b2]"
-                }`}
-              />
-
-              <div className="flex items-start justify-between gap-2">
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase ${
-                    ev.status === "published"
-                      ? "bg-[#e2f8f5] text-[#147d77]"
-                      : ev.status === "draft"
-                        ? "bg-[#fff2df] text-[#be6906]"
-                        : "bg-[#e8edf0] text-[#72808e]"
-                  }`}
-                >
-                  {ev.status}
-                </span>
-
-                {isOrganizer && (
-                  <button
-                    type="button"
-                    onClick={() => openEdit(ev)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-[#e8edf0] px-2.5 py-1 text-[11px] font-bold text-[#14222e] hover:border-[#168bd0]/40 hover:text-[#168bd0]"
-                  >
-                    <Pencil className="h-3 w-3" />
-                    Edit
-                  </button>
-                )}
-              </div>
-
-              <h3 className="mt-3 text-base font-bold text-[#14222e]">
-                {ev.title}
-              </h3>
-
-              <div className="mt-2.5 space-y-1 text-xs text-[#72808e]">
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5 shrink-0 text-[#168bd0]" />
-                  <span>
-                    {formatCebuDate(ev.starts_at)} ·{" "}
-                    {formatCebuTimeRange(ev.starts_at, ev.ends_at)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 shrink-0 text-[#168bd0]" />
-                  <span className="truncate">{ev.venue}</span>
-                </div>
-              </div>
-
-              <div className="mt-auto grid grid-cols-3 gap-2 border-t border-[#e8edf0] pt-4 text-center">
-                <div>
-                  <div className="text-sm font-extrabold text-[#14222e]">
-                    {ev.active_count}/{ev.capacity}
-                  </div>
-                  <div className="text-[10px] font-semibold text-[#72808e]">
-                    Registered
-                  </div>
-                </div>
-                <div className="border-x border-[#e8edf0]">
-                  <div className="text-sm font-extrabold text-[#087b72]">
-                    {ev.checked_in_count}
-                  </div>
-                  <div className="text-[10px] font-semibold text-[#72808e]">
-                    Checked In
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm font-extrabold text-[#be6906]">
-                    {ev.waitlisted_count}
-                  </div>
-                  <div className="text-[10px] font-semibold text-[#72808e]">
-                    Waitlisted
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+      ) : paginatedEvents.length === 0 ? (
+        <div className="card-panel p-10 text-center text-xs text-[#72808e]">
+          No events match this filter.
         </div>
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {paginatedEvents.map((ev) => (
+              <div
+                key={ev.id}
+                className="card-panel relative flex flex-col overflow-hidden p-5 transition-all duration-200 hover:-translate-y-1 hover:scale-[1.02] hover:border-[#20c9db]/60 hover:shadow-md"
+              >
+                <div
+                  className={`absolute inset-x-0 top-0 h-1 ${
+                    ev.status === "published"
+                      ? "bg-gradient-to-r from-[#20c9db] to-[#168bd0]"
+                      : ev.status === "draft"
+                        ? "bg-yellow-400"
+                        : "bg-[#9ba8b2]"
+                  }`}
+                />
+
+                <div className="flex items-start justify-between gap-2">
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase ${
+                      ev.status === "published"
+                        ? "bg-[#e2f8f5] text-[#147d77]"
+                        : ev.status === "draft"
+                          ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-300"
+                          : "bg-[#e8edf0] text-[#72808e] dark:bg-slate-700/60 dark:text-slate-300"
+                    }`}
+                  >
+                    {ev.status}
+                  </span>
+
+                  {isOrganizer && (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(ev)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-[#e8edf0] px-2.5 py-1 text-[11px] font-bold text-[#14222e] hover:border-[#168bd0]/40 hover:text-[#168bd0]"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Edit
+                    </button>
+                  )}
+                </div>
+
+                <h3 className="mt-3 text-base font-bold text-[#14222e]">
+                  {ev.title}
+                </h3>
+
+                <div className="mt-2.5 space-y-1 text-xs text-[#72808e]">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 shrink-0 text-[#168bd0]" />
+                    <span>
+                      {formatCebuDate(ev.starts_at)} ·{" "}
+                      {formatCebuTimeRange(ev.starts_at, ev.ends_at)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-[#168bd0]" />
+                    <span className="truncate">{ev.venue}</span>
+                  </div>
+                </div>
+
+                <div className="mt-auto grid grid-cols-3 gap-2 border-t border-[#e8edf0] pt-4 text-center">
+                  <div>
+                    <div className="text-sm font-extrabold text-[#14222e]">
+                      {ev.active_count}/{ev.capacity}
+                    </div>
+                    <div className="text-[10px] font-semibold text-[#72808e]">
+                      Registered
+                    </div>
+                  </div>
+                  <div className="border-x border-[#e8edf0]">
+                    <div className="text-sm font-extrabold text-[#087b72]">
+                      {ev.checked_in_count}
+                    </div>
+                    <div className="text-[10px] font-semibold text-[#72808e]">
+                      Checked In
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-extrabold text-[#be6906]">
+                      {ev.waitlisted_count}
+                    </div>
+                    <div className="text-[10px] font-semibold text-[#72808e]">
+                      Waitlisted
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination Footer (12 per page, no extra card container) */}
+          <div className="flex flex-wrap items-center justify-between gap-3 px-1 pt-2 text-xs text-[#72808e]">
+            <div>
+              Showing{" "}
+              <strong className="text-[#14222e]">
+                {rangeStart === 1 && rangeEnd === shownCount
+                  ? shownCount
+                  : `${rangeStart}–${rangeEnd}`}
+              </strong>{" "}
+              out of <strong className="text-[#14222e]">{totalFiltered}</strong>{" "}
+              {totalFiltered === 1 ? "event" : "events"}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold">
+                Page {safePage} of {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={safePage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                aria-label="Previous 12 events"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e8edf0] bg-white text-[#14222e] transition hover:border-[#168bd0]/40 hover:text-[#168bd0] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                aria-label="Next 12 events"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e8edf0] bg-white text-[#14222e] transition hover:border-[#168bd0]/40 hover:text-[#168bd0] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Create / Edit Modal */}
@@ -415,13 +551,12 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
                   <label className="block text-xs font-bold text-[#14222e]">
                     Date (Cebu) *
                   </label>
-                  <input
-                    type="date"
-                    required
-                    value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
-                    className="mt-1 h-10 w-full rounded-xl border border-[#e8edf0] bg-[#f8fafb] px-2.5 text-xs outline-none focus:border-[#168bd0] focus:bg-white"
-                  />
+                  <div className="mt-1">
+                    <CubeDatePicker
+                      value={form.date}
+                      onChange={(val) => updateScheduleField("date", val)}
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-[#14222e]">
@@ -432,7 +567,7 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
                     required
                     value={form.startTime}
                     onChange={(e) =>
-                      setForm({ ...form, startTime: e.target.value })
+                      updateScheduleField("startTime", e.target.value)
                     }
                     className="mt-1 h-10 w-full rounded-xl border border-[#e8edf0] bg-[#f8fafb] px-2.5 text-xs outline-none focus:border-[#168bd0] focus:bg-white"
                   />
@@ -446,7 +581,7 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
                     required
                     value={form.endTime}
                     onChange={(e) =>
-                      setForm({ ...form, endTime: e.target.value })
+                      updateScheduleField("endTime", e.target.value)
                     }
                     className="mt-1 h-10 w-full rounded-xl border border-[#e8edf0] bg-[#f8fafb] px-2.5 text-xs outline-none focus:border-[#168bd0] focus:bg-white"
                   />
@@ -480,20 +615,34 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
                   <label className="block text-xs font-bold text-[#14222e]">
                     Status *
                   </label>
-                  <select
+                  <CubeSelect
+                    className="mt-1"
+                    menuAlign="right"
                     value={form.status}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        status: e.target.value as EventStatus,
-                      })
+                    onChange={(val) =>
+                      setForm({ ...form, status: val as EventStatus })
                     }
-                    className="mt-1 h-10 w-full rounded-xl border border-[#e8edf0] bg-[#f8fafb] px-3 text-sm outline-none focus:border-[#168bd0] focus:bg-white"
-                  >
-                    <option value="draft">Draft (hidden)</option>
-                    <option value="published">Published (visible)</option>
-                    <option value="closed">Closed (no new signups)</option>
-                  </select>
+                    options={[
+                      {
+                        value: "draft",
+                        label: "Draft",
+                        sublabel: "(hidden)",
+                        dotClass: "bg-yellow-400",
+                      },
+                      {
+                        value: "published",
+                        label: "Published",
+                        sublabel: "(visible)",
+                        dotClass: "bg-[#14a395]",
+                      },
+                      {
+                        value: "closed",
+                        label: "Closed",
+                        sublabel: "(no signups)",
+                        dotClass: "bg-[#9ba8b2]",
+                      },
+                    ]}
+                  />
                 </div>
               </div>
 
@@ -510,7 +659,11 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
                   disabled={saving}
                   className="btn-primary h-10 rounded-xl px-5 text-xs font-bold"
                 >
-                  {saving ? "Saving..." : form.id ? "Save Changes" : "Create Event"}
+                  {saving
+                    ? "Saving..."
+                    : form.id
+                      ? "Save Changes"
+                      : "Create Event"}
                 </button>
               </div>
             </form>

@@ -10,8 +10,8 @@ import {
   ClipboardList,
   LogOut,
   ExternalLink,
-  ShieldCheck,
 } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 import type { StaffUser } from "@/lib/types";
 
 interface StaffShellProps {
@@ -47,16 +47,22 @@ export function StaffShell({ staff, children }: StaffShellProps) {
       {/* Desktop Sidebar */}
       <aside className="hidden border-r border-[#e8edf0] bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:px-5 lg:py-6">
         <div className="flex items-center gap-2.5 px-2 pb-7">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#20c9db] to-[#168bd0] text-white">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/cubepass-logo.png"
+            alt="CubePass Calendar Logo"
+            className="h-8 w-8 shrink-0 object-contain dark:invert"
+          />
           <div className="leading-tight">
             <div className="text-lg font-extrabold tracking-tight text-[#14222e]">
-              EventFlow
+              CubePass
             </div>
             <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#72808e]">
               Admin Console
             </div>
+          </div>
+          <div className="ml-auto">
+            <ThemeToggle />
           </div>
         </div>
 
@@ -125,12 +131,15 @@ export function StaffShell({ staff, children }: StaffShellProps) {
         <header className="sticky top-0 z-30 border-b border-[#e8edf0] bg-white/95 backdrop-blur-md lg:hidden">
           <div className="flex h-14 items-center justify-between px-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#20c9db] to-[#168bd0] text-white">
-                <ShieldCheck className="h-4 w-4" />
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/cubepass-logo.png"
+                alt="CubePass Calendar Logo"
+                className="h-7 w-7 shrink-0 object-contain dark:invert"
+              />
               <div>
                 <div className="text-sm font-extrabold text-[#14222e]">
-                  EventFlow Admin
+                  CubePass Admin
                 </div>
                 <div className="text-[10px] font-semibold text-[#1392b4]">
                   {staff.name} ·{" "}
@@ -140,6 +149,7 @@ export function StaffShell({ staff, children }: StaffShellProps) {
             </div>
 
             <div className="flex items-center gap-2">
+              <ThemeToggle />
               <Link
                 href="/"
                 className="rounded-lg border border-[#e8edf0] px-2.5 py-1.5 text-[11px] font-bold text-[#72808e]"

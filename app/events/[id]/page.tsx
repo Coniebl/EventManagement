@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { AttendeeHeader } from "@/components/AttendeeHeader";
+import { AttendeeFooter } from "@/components/AttendeeFooter";
 import { EventRegistrationClient } from "@/components/EventRegistrationClient";
 
 async function EventPageContent({
@@ -31,6 +32,7 @@ export default function EventDetailPage({
           <EventPageContent params={params} />
         </Suspense>
       </main>
+      <AttendeeFooter />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentStaff } from "@/lib/session";
 import { getSupabaseServerClient } from "@/lib/supabase";
 import { validateEventInput } from "@/lib/validation";
+import type { DashboardEvent } from "@/lib/types";
 
 export async function GET() {
   const staff = await getCurrentStaff();
@@ -18,7 +19,19 @@ export async function GET() {
     );
   }
 
-  return NextResponse.json({ events: data ?? [] });
+  // Automatically flag published events whose scheduled end time has passed as "closed".
+  // If staff later edits & extends the end time into the future and sets it to "published",
+  // it becomes open and visible to attendees again.
+  const now = Date.now();
+  const normalized = ((data ?? []) as DashboardEvent[]).map((ev) => {
+    const hasPassed = ev.is_ended || new Date(ev.ends_at).getTime() <= now;
+    if (ev.status === "published" && hasPassed) {
+      return { ...ev, status: "closed" as const, is_ended: true };
+    }
+    return ev;
+  });
+
+  return NextResponse.json({ events: normalized });
 }
 
 export async function POST(request: Request) {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Ticket, QrCode, Sparkles } from "lucide-react";
 import { AttendeeHeader } from "@/components/AttendeeHeader";
+import { AttendeeFooter } from "@/components/AttendeeFooter";
 import { PublicEventsList } from "@/components/PublicEventsList";
 
 export default function HomePage() {
@@ -49,9 +50,7 @@ export default function HomePage() {
         </section>
       </main>
 
-      <footer className="border-t border-[#e8edf0] bg-white py-5 text-center text-xs text-[#72808e]">
-        EventFlow Cebu · All times in Cebu Local Time (Asia/Manila, UTC+8)
-      </footer>
+      <AttendeeFooter />
     </div>
   );
 }

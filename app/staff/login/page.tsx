@@ -3,7 +3,7 @@
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ShieldCheck, ArrowLeft, AlertCircle, Lock } from "lucide-react";
+import { ArrowLeft, AlertCircle, Lock } from "lucide-react";
 
 function StaffLoginForm() {
   const searchParams = useSearchParams();
@@ -44,12 +44,15 @@ function StaffLoginForm() {
   return (
     <div className="w-full max-w-md rounded-2xl border border-[#e8edf0] bg-white p-8 shadow-lg">
       <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#20c9db] to-[#168bd0] text-white shadow-sm">
-          <ShieldCheck className="h-6 w-6" />
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/cubepass-logo.png"
+          alt="CubePass Calendar Logo"
+          className="h-9 w-9 shrink-0 object-contain dark:invert"
+        />
         <div>
           <div className="text-lg font-bold tracking-tight text-[#14222e]">
-            EventFlow Admin
+            CubePass Admin
           </div>
           <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#72808e]">
             Staff & Organizer Portal

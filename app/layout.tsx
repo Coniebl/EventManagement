@@ -2,15 +2,29 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "EventFlow Cebu — Event Registration & QR Check-in",
+  title: "CubePass — Event Registration & QR Check-in",
   description:
-    "Browse upcoming Cebu tech and community events, register for free, get your QR code ticket, and check in smoothly at the door.",
+    "Browse upcoming Cebu tech and community events on CubePass, register for free, get your QR code ticket, and check in smoothly at the door.",
 };
+
+const THEME_INIT_SCRIPT = `
+(function(){
+  try {
+    var t = localStorage.getItem('cubepass_theme');
+    if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    }
+  } catch (e) {}
+})();
+`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col bg-[#f5f8fa] text-[#14222e]">
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
+      <body className="min-h-full flex flex-col bg-[var(--bg)] text-[var(--text)]">
         {children}
       </body>
     </html>

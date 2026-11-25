@@ -12,6 +12,7 @@ import {
   Keyboard,
 } from "lucide-react";
 import { formatCebuDateTime } from "@/lib/time";
+import { CubeSelect } from "./CubeSelect";
 import type { CheckInResult, DashboardEvent } from "@/lib/types";
 
 export function StaffCheckInClient() {
@@ -224,21 +225,27 @@ export function StaffCheckInClient() {
             >
               Active Event at Door
             </label>
-            <select
+            <CubeSelect
               id="checkin-event"
+              className="mt-1.5"
               value={selectedEventId}
-              onChange={(e) => {
-                setSelectedEventId(e.target.value);
+              onChange={(val) => {
+                setSelectedEventId(val);
                 setScanResult(null);
               }}
-              className="mt-1.5 h-11 w-full rounded-xl border border-[#e8edf0] bg-[#f8fafb] px-3.5 text-sm font-bold text-[#14222e] outline-none focus:border-[#168bd0] focus:bg-white"
-            >
-              {events.map((ev) => (
-                <option key={ev.id} value={ev.id}>
-                  {ev.title} ({ev.checked_in_count}/{ev.active_count} checked in)
-                </option>
-              ))}
-            </select>
+              placeholder="Select an event"
+              options={events.map((ev) => ({
+                value: ev.id,
+                label: ev.title,
+                sublabel: `(${ev.checked_in_count}/${ev.active_count} checked in)`,
+                dotClass:
+                  ev.status === "published"
+                    ? "bg-[#14a395]"
+                    : ev.status === "draft"
+                      ? "bg-yellow-400"
+                      : "bg-[#9ba8b2]",
+              }))}
+            />
           </div>
 
           {/* Result Banner (Color + Icon + Text) */}

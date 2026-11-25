@@ -61,7 +61,6 @@ export function PublicEventsList() {
   });
 
   const upcoming = filtered.filter((ev) => !ev.is_ended);
-  const past = filtered.filter((ev) => ev.is_ended);
 
   if (loading) {
     return (
@@ -147,7 +146,7 @@ export function PublicEventsList() {
               <Link
                 key={event.id}
                 href={`/events/${event.id}`}
-                className="group relative flex flex-col overflow-hidden rounded-2xl border border-[#e8edf0] bg-white p-6 transition hover:-translate-y-0.5 hover:border-[#20c9db]/60 hover:shadow-md"
+                className="group relative flex flex-col overflow-hidden rounded-2xl border border-[#e8edf0] bg-white p-6 transition-all duration-200 hover:-translate-y-1 hover:scale-[1.02] hover:border-[#20c9db]/60 hover:shadow-md"
               >
                 <div
                   className={`absolute inset-x-0 top-0 h-1 ${
@@ -230,55 +229,6 @@ export function PublicEventsList() {
               </Link>
             );
           })}
-        </div>
-      )}
-
-      {/* Past Events (clearly marked Ended) */}
-      {past.length > 0 && (
-        <div className="space-y-4 pt-4">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold tracking-tight text-[#14222e]">
-              Past Events
-            </h2>
-            <span className="rounded-full bg-[#e8edf0] px-2.5 py-0.5 text-[11px] font-bold text-[#72808e]">
-              Ended
-            </span>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {past.map((event) => {
-              const badge = getCebuDateBadge(event.starts_at);
-              return (
-                <Link
-                  key={event.id}
-                  href={`/events/${event.id}`}
-                  className="flex items-start gap-4 rounded-2xl border border-[#e8edf0] bg-white/80 p-5 opacity-80 transition hover:opacity-100"
-                >
-                  <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-[#f1f5f8] text-[#72808e]">
-                    <span className="text-[9px] font-extrabold">
-                      {badge.month}
-                    </span>
-                    <strong className="text-base leading-none">
-                      {badge.day}
-                    </strong>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="truncate text-sm font-bold text-[#14222e]">
-                        {event.title}
-                      </h3>
-                      <span className="shrink-0 rounded-full bg-[#e8edf0] px-2 py-0.5 text-[10px] font-bold uppercase text-[#72808e]">
-                        Ended
-                      </span>
-                    </div>
-                    <p className="mt-1 truncate text-xs text-[#72808e]">
-                      {formatCebuDate(event.starts_at)} · {event.venue}
-                    </p>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
         </div>
       )}
     </div>

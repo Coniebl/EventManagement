@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, Ticket, ShieldCheck } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 
 function AttendeeNavLinks() {
   const pathname = usePathname();
@@ -34,9 +35,11 @@ function AttendeeNavLinks() {
         <span>My Ticket</span>
       </Link>
 
+      <ThemeToggle />
+
       <Link
         href="/staff"
-        className="ml-1 inline-flex items-center gap-1.5 rounded-lg border border-[#e8edf0] bg-[#f8fafb] px-3 py-2 text-xs font-bold text-[#14222e] transition hover:border-[#168bd0]/40 hover:bg-[#e1f6fb]/50 hover:text-[#0878ba]"
+        className="ml-0.5 inline-flex items-center gap-1.5 rounded-lg border border-[#e8edf0] bg-[#f8fafb] px-3 py-2 text-xs font-bold text-[#14222e] transition hover:border-[#168bd0]/40 hover:bg-[#e1f6fb]/50 hover:text-[#0878ba]"
       >
         <ShieldCheck className="h-3.5 w-3.5 text-[#168bd0]" />
         <span className="hidden sm:inline">Staff Portal</span>
@@ -63,9 +66,10 @@ function AttendeeNavFallback() {
         <Ticket className="h-4 w-4" />
         <span>My Ticket</span>
       </Link>
+      <ThemeToggle />
       <Link
         href="/staff"
-        className="ml-1 inline-flex items-center gap-1.5 rounded-lg border border-[#e8edf0] bg-[#f8fafb] px-3 py-2 text-xs font-bold text-[#14222e]"
+        className="ml-0.5 inline-flex items-center gap-1.5 rounded-lg border border-[#e8edf0] bg-[#f8fafb] px-3 py-2 text-xs font-bold text-[#14222e]"
       >
         <ShieldCheck className="h-3.5 w-3.5 text-[#168bd0]" />
         <span className="hidden sm:inline">Staff Portal</span>
@@ -77,15 +81,18 @@ function AttendeeNavFallback() {
 
 export function AttendeeHeader() {
   return (
-    <header className="sticky top-0 z-30 border-b border-[#e8edf0] bg-white/95 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+    <div className="sticky top-0 z-30 mx-auto w-full max-w-6xl px-4 pt-3 sm:px-6">
+      <header className="flex h-15 items-center justify-between rounded-2xl border border-[#e8edf0] bg-white/95 px-4 shadow-xs backdrop-blur-md sm:px-5">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#20c9db] to-[#168bd0] text-white shadow-sm">
-            <CalendarDays className="h-5 w-5" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/cubepass-logo.png"
+            alt="CubePass Calendar Logo"
+            className="h-8 w-8 shrink-0 object-contain dark:invert"
+          />
           <div className="leading-tight">
-            <div className="text-base font-bold tracking-tight text-[#14222e]">
-              EventFlow
+            <div className="text-base font-extrabold tracking-tight text-[#14222e]">
+              CubePass
             </div>
             <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#72808e]">
               Cebu Events
@@ -96,7 +103,7 @@ export function AttendeeHeader() {
         <Suspense fallback={<AttendeeNavFallback />}>
           <AttendeeNavLinks />
         </Suspense>
-      </div>
-    </header>
+      </header>
+    </div>
   );
 }

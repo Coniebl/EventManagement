@@ -163,7 +163,7 @@ export function EventRegistrationClient({
   // Success View: Show QR Ticket Pass or Waitlist Confirmation
   if (result) {
     return (
-      <div className="mx-auto max-w-xl space-y-5">
+      <div className="mx-auto max-w-4xl space-y-4">
         <div className="flex items-center justify-between">
           <Link
             href="/"

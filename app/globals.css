@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
+  color-scheme: light;
   --bg: #f5f8fa;
   --panel: #ffffff;
   --panel-2: #f8fafb;
@@ -13,6 +16,16 @@
   --deep-1: #092d40;
   --deep-2: #0c4560;
   --deep-3: #106581;
+}
+
+.dark {
+  color-scheme: dark;
+  --bg: #0b1218;
+  --panel: #111b23;
+  --panel-2: #15222c;
+  --text: #edf7fb;
+  --muted: #8ea0ad;
+  --line: #22313d;
 }
 
 @theme inline {
@@ -28,7 +41,8 @@ html,
 body {
   background-color: var(--bg);
   color: var(--text);
-  font-family: var(--font-geist-sans), Inter, "Segoe UI", system-ui, sans-serif;
+  font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .btn-primary {
@@ -61,4 +75,177 @@ body {
 
 .progress-fill {
   background: linear-gradient(90deg, #2bc9cf, #178bd0);
+}
+
+/* Global Dark Mode Palette Overrides (matching Figma .dark .app-shell tokens) */
+.dark .bg-\[\#f5f8fa\] {
+  background-color: #0b1218 !important;
+}
+.dark .bg-white,
+.dark .bg-white\/95,
+.dark .bg-white\/80 {
+  background-color: #111b23 !important;
+}
+.dark .bg-\[\#f8fafb\],
+.dark .bg-\[\#f8fafb\]\/70,
+.dark .bg-\[\#f1f5f8\] {
+  background-color: #15222c !important;
+}
+.dark .border-\[\#e8edf0\] {
+  border-color: #22313d !important;
+}
+.dark .divide-\[\#e8edf0\] > :not(:last-child) {
+  border-color: #22313d !important;
+}
+.dark .text-\[\#14222e\],
+.dark .text-\[\#092d40\] {
+  color: #edf7fb !important;
+}
+.dark .text-\[\#72808e\] {
+  color: #8ea0ad !important;
+}
+.dark .bg-\[\#e1f6fb\],
+.dark .bg-\[\#ddf8fb\],
+.dark .bg-\[\#e1f1fb\] {
+  background-color: rgba(32, 201, 219, 0.14) !important;
+}
+.dark .bg-\[\#dff7f4\],
+.dark .bg-\[\#e2f8f5\],
+.dark .bg-\[\#e6f8f5\],
+.dark .bg-\[\#dff8f4\],
+.dark .bg-\[\#e1f9f6\] {
+  background-color: rgba(66, 200, 194, 0.16) !important;
+  color: #5eead4 !important;
+}
+.dark .bg-\[\#fff2df\],
+.dark .bg-\[\#fff4dd\] {
+  background-color: rgba(245, 158, 11, 0.16) !important;
+  color: #fbbf24 !important;
+}
+.dark .bg-\[\#ffeded\] {
+  background-color: rgba(239, 68, 68, 0.16) !important;
+  color: #fca5a5 !important;
+}
+.dark .border-\[\#b8efea\] {
+  border-color: rgba(66, 200, 194, 0.35) !important;
+}
+.dark .border-\[\#f5d8aa\] {
+  border-color: rgba(245, 158, 11, 0.35) !important;
+}
+.dark .border-\[\#f5c2c2\] {
+  border-color: rgba(239, 68, 68, 0.35) !important;
+}
+.dark .text-\[\#0878ba\],
+.dark .text-\[\#128eb3\] {
+  color: #38d9e8 !important;
+}
+.dark .text-\[\#057b74\],
+.dark .text-\[\#087b72\],
+.dark .text-\[\#147d77\] {
+  color: #5eead4 !important;
+}
+.dark .text-\[\#be6906\],
+.dark .text-\[\#9a5705\] {
+  color: #fbbf24 !important;
+}
+.dark .text-\[\#b34a4a\] {
+  color: #fca5a5 !important;
+}
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #15222c !important;
+  color: #edf7fb !important;
+  border-color: #22313d !important;
+}
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  background-color: #192935 !important;
+}
+/* Keep QR code background pure white so scanners always read it cleanly in dark mode */
+.qr-surface {
+  background-color: #ffffff !important;
+}
+
+/* CubePass Color-Palette Styling for All Selects, Filters, and Date/Time Calendars */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  accent-color: #168bd0;
+  padding-right: 2.25rem !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23168bd0' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  background-size: 1rem;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+select:hover {
+  border-color: rgba(22, 139, 208, 0.5) !important;
+}
+
+select:focus {
+  border-color: #168bd0 !important;
+  box-shadow: 0 0 0 3px rgba(32, 201, 219, 0.18) !important;
+}
+
+.dark select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2320c9db' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+select option {
+  background-color: #ffffff;
+  color: #14222e;
+}
+
+.dark select option {
+  background-color: #111b23;
+  color: #edf7fb;
+}
+
+input[type="date"],
+input[type="time"] {
+  accent-color: #168bd0;
+  color-scheme: light;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.dark input[type="date"],
+.dark input[type="time"] {
+  color-scheme: dark;
+}
+
+input[type="date"]:hover,
+input[type="time"]:hover {
+  border-color: rgba(22, 139, 208, 0.5) !important;
+}
+
+input[type="date"]:focus,
+input[type="time"]:focus {
+  border-color: #168bd0 !important;
+  box-shadow: 0 0 0 3px rgba(32, 201, 219, 0.18) !important;
+}
+
+/* Tint native calendar & clock picker icons to CubePass ocean blue / cyan */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 3px;
+  filter: invert(39%) sepia(88%) saturate(1024%) hue-rotate(174deg) brightness(93%) contrast(94%);
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  background-color: rgba(32, 201, 219, 0.18);
+  transform: scale(1.08);
+}
+
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(72%) sepia(67%) saturate(1300%) hue-rotate(146deg) brightness(98%) contrast(96%);
 }

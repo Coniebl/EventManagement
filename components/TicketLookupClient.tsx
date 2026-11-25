@@ -114,7 +114,7 @@ export function TicketLookupClient() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       {/* Lookup Form Card */}
       <div className="card-panel p-6 sm:p-7">
         <div className="flex items-center gap-3">

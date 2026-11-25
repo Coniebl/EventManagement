@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Search,
@@ -13,8 +13,14 @@ import {
   Clock,
   AlertCircle,
   X,
+  Filter,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { formatCebuDateTime } from "@/lib/time";
+import { CubeSelect } from "./CubeSelect";
 import type {
   DashboardEvent,
   RegistrationRecord,
@@ -22,20 +28,59 @@ import type {
   StaffUser,
 } from "@/lib/types";
 
+const PAGE_SIZE = 10;
+
+const REG_STATUS_ORDER: Record<RegistrationStatus, number> = {
+  confirmed: 0,
+  checked_in: 1,
+  waitlisted: 2,
+  cancelled: 3,
+};
+
+const REG_STATUS_OPTIONS: {
+  value: "all" | RegistrationStatus;
+  label: string;
+  dotClass: string;
+}[] = [
+  { value: "all", label: "All Statuses", dotClass: "bg-[#168bd0]" },
+  { value: "confirmed", label: "Confirmed", dotClass: "bg-[#168bd0]" },
+  { value: "checked_in", label: "Checked In", dotClass: "bg-[#14a395]" },
+  { value: "waitlisted", label: "Waitlisted", dotClass: "bg-yellow-400" },
+  { value: "cancelled", label: "Cancelled", dotClass: "bg-[#d9534f]" },
+];
+
 export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
   const searchParams = useSearchParams();
-  const initialEventId = searchParams.get("event") ?? "";
+  const eventParam = searchParams.get("event") ?? "";
   const isOrganizer = staff.role === "organizer";
 
   const [events, setEvents] = useState<DashboardEvent[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState(initialEventId);
+  const [selectedEventId, setSelectedEventId] = useState("");
+  const activeEventId = eventParam || selectedEventId;
   const [registrations, setRegistrations] = useState<RegistrationRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | RegistrationStatus>(
     "all"
   );
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const statusMenuRef = useRef<HTMLDivElement | null>(null);
+  const [page, setPage] = useState(1);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!statusMenuOpen) return;
+    const onOutside = (e: MouseEvent) => {
+      if (
+        statusMenuRef.current &&
+        !statusMenuRef.current.contains(e.target as Node)
+      ) {
+        setStatusMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, [statusMenuOpen]);
   const [banner, setBanner] = useState<{
     type: "success" | "error";
     text: string;
@@ -77,22 +122,22 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
       if (active && res.ok) {
         const list = (data.events ?? []) as DashboardEvent[];
         setEvents(list);
-        setSelectedEventId((prev) => prev || list[0]?.id || "");
+        setSelectedEventId((prev) => eventParam || prev || list[0]?.id || "");
       }
     }
     initEvents();
     return () => {
       active = false;
     };
-  }, []);
+  }, [eventParam]);
 
   useEffect(() => {
-    if (!selectedEventId) return;
+    if (!activeEventId) return;
     let active = true;
     async function initRegs() {
       try {
         const res = await fetch(
-          `/api/staff/events/${selectedEventId}/registrations`,
+          `/api/staff/events/${activeEventId}/registrations`,
           { cache: "no-store" }
         );
         const data = await res.json();
@@ -105,17 +150,17 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
     return () => {
       active = false;
     };
-  }, [selectedEventId]);
+  }, [activeEventId]);
 
-  const currentEvent = events.find((e) => e.id === selectedEventId);
+  const currentEvent = events.find((e) => e.id === activeEventId);
 
   const handlePromote = async () => {
-    if (!selectedEventId) return;
+    if (!activeEventId) return;
     setBusyId("promote");
     setBanner(null);
     try {
       const res = await fetch(
-        `/api/staff/events/${selectedEventId}/promote`,
+        `/api/staff/events/${activeEventId}/promote`,
         { method: "POST" }
       );
       const data = await res.json();
@@ -127,7 +172,7 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
         type: "success",
         text: `Promoted ${data.registration.full_name} (${data.registration.ticket_code}) to Confirmed!`,
       });
-      await Promise.all([loadEvents(), loadRegistrations(selectedEventId)]);
+      await Promise.all([loadEvents(), loadRegistrations(activeEventId)]);
     } finally {
       setBusyId(null);
     }
@@ -150,7 +195,7 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
         type: "success",
         text: `Undid check-in for ${reg.full_name}. Ticket is back to Confirmed.`,
       });
-      await Promise.all([loadEvents(), loadRegistrations(selectedEventId)]);
+      await Promise.all([loadEvents(), loadRegistrations(activeEventId)]);
     } finally {
       setBusyId(null);
     }
@@ -173,22 +218,50 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
         type: "success",
         text: `Cancelled registration for ${reg.full_name}.`,
       });
-      await Promise.all([loadEvents(), loadRegistrations(selectedEventId)]);
+      await Promise.all([loadEvents(), loadRegistrations(activeEventId)]);
     } finally {
       setBusyId(null);
     }
   };
 
-  const filtered = registrations.filter((r) => {
-    if (statusFilter !== "all" && r.status !== statusFilter) return false;
-    const q = search.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      r.full_name.toLowerCase().includes(q) ||
-      r.ticket_code.toLowerCase().includes(q) ||
-      r.email.toLowerCase().includes(q)
-    );
-  });
+  const filtered = useMemo(() => {
+    const base = registrations.filter((r) => {
+      if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      const q = search.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        r.full_name.toLowerCase().includes(q) ||
+        r.ticket_code.toLowerCase().includes(q) ||
+        r.email.toLowerCase().includes(q)
+      );
+    });
+
+    // Arrange by status: Confirmed -> Checked In -> Waitlisted -> Cancelled
+    return [...base].sort((a, b) => {
+      const orderDiff = REG_STATUS_ORDER[a.status] - REG_STATUS_ORDER[b.status];
+      if (orderDiff !== 0) return orderDiff;
+      if (a.status === "waitlisted" && b.status === "waitlisted") {
+        return (a.waitlist_position ?? 9999) - (b.waitlist_position ?? 9999);
+      }
+      return (
+        new Date(b.registered_at).getTime() -
+        new Date(a.registered_at).getTime()
+      );
+    });
+  }, [registrations, statusFilter, search]);
+
+  const activeStatusMeta =
+    REG_STATUS_OPTIONS.find((o) => o.value === statusFilter) ??
+    REG_STATUS_OPTIONS[0];
+
+  const totalFiltered = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const startIdx = (safePage - 1) * PAGE_SIZE;
+  const paginatedAttendees = filtered.slice(startIdx, startIdx + PAGE_SIZE);
+  const shownCount = paginatedAttendees.length;
+  const rangeStart = totalFiltered === 0 ? 0 : startIdx + 1;
+  const rangeEnd = startIdx + shownCount;
 
   const canPromote =
     isOrganizer &&
@@ -205,34 +278,39 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
             Attendee Directory
           </p>
           <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-[#14222e]">
-            Registered Attendees
+            {currentEvent ? currentEvent.title : "Registered Attendees"}
           </h1>
           <p className="mt-1 text-xs text-[#72808e]">
             View registrations, check-in status, promote waitlisted guests, undo
-            check-ins, and export CSV.
+            check-ins, and export Excel/CSV.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={selectedEventId}
-            onChange={(e) => setSelectedEventId(e.target.value)}
-            className="h-10 rounded-xl border border-[#e8edf0] bg-white px-3 text-xs font-bold text-[#14222e] outline-none focus:border-[#168bd0]"
-          >
-            {events.map((ev) => (
-              <option key={ev.id} value={ev.id}>
-                {ev.title} ({ev.status})
-              </option>
-            ))}
-          </select>
+          {!eventParam && (
+            <CubeSelect
+              className="w-64"
+              menuAlign="right"
+              value={activeEventId}
+              onChange={(val) => {
+                setSelectedEventId(val);
+                setPage(1);
+              }}
+              placeholder="Select event"
+              options={events.map((ev) => ({
+                value: ev.id,
+                label: ev.title,
+              }))}
+            />
+          )}
 
-          {selectedEventId && (
+          {activeEventId && (
             <a
-              href={`/api/staff/events/${selectedEventId}/export`}
+              href={`/api/staff/events/${activeEventId}/export`}
               className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[#e8edf0] bg-white px-3.5 text-xs font-bold text-[#14222e] hover:border-[#168bd0]/40 hover:text-[#168bd0]"
             >
               <Download className="h-3.5 w-3.5" />
-              Export CSV
+              Export Excel
             </a>
           )}
         </div>
@@ -325,32 +403,76 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
       )}
 
       {/* Search & Table */}
-      <div className="card-panel overflow-hidden">
+      <div className="card-panel overflow-visible">
         <div className="flex flex-wrap items-center gap-3 border-b border-[#e8edf0] p-4">
           <div className="relative min-w-[220px] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#72808e]" />
             <input
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
               placeholder="Search by name, ticket code, or email..."
               className="h-9 w-full rounded-lg border border-[#e8edf0] bg-[#f8fafb] pl-9 pr-3 text-xs text-[#14222e] outline-none focus:border-[#168bd0] focus:bg-white"
             />
           </div>
 
-          <select
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(e.target.value as "all" | RegistrationStatus)
-            }
-            className="h-9 rounded-lg border border-[#e8edf0] bg-white px-3 text-xs font-semibold text-[#14222e]"
-          >
-            <option value="all">All Statuses</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="checked_in">Checked In</option>
-            <option value="waitlisted">Waitlisted</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+          <div ref={statusMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setStatusMenuOpen((o) => !o)}
+              aria-expanded={statusMenuOpen}
+              className={`inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-bold transition ${
+                statusFilter !== "all" || statusMenuOpen
+                  ? "border-[#168bd0]/50 bg-[#e1f6fb] text-[#0878ba]"
+                  : "border-[#e8edf0] bg-white text-[#14222e] hover:border-[#168bd0]/40"
+              }`}
+            >
+              <Filter className="h-3.5 w-3.5 text-[#168bd0]" />
+              <span className={`h-2 w-2 rounded-full ${activeStatusMeta.dotClass}`} />
+              <span>{activeStatusMeta.label}</span>
+              <ChevronDown className="h-3.5 w-3.5 text-[#72808e]" />
+            </button>
+
+            {statusMenuOpen && (
+              <div className="absolute right-0 top-full z-40 mt-2 w-48 rounded-xl border border-[#e8edf0] bg-white p-1.5 shadow-xl">
+                <div className="px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#72808e]">
+                  Filter Attendee Status
+                </div>
+                <div className="mt-0.5 space-y-0.5">
+                  {REG_STATUS_OPTIONS.map((opt) => {
+                    const selected = statusFilter === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          setStatusFilter(opt.value);
+                          setPage(1);
+                          setStatusMenuOpen(false);
+                        }}
+                        className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold transition ${
+                          selected
+                            ? "bg-[#e1f6fb] text-[#0878ba]"
+                            : "text-[#14222e] hover:bg-[#f8fafb]"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className={`h-2 w-2 rounded-full ${opt.dotClass}`} />
+                          {opt.label}
+                        </span>
+                        {selected && (
+                          <Check className="h-3.5 w-3.5 text-[#0878ba]" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -373,14 +495,14 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
                     Loading attendees...
                   </td>
                 </tr>
-              ) : filtered.length === 0 ? (
+              ) : paginatedAttendees.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-10 text-center text-[#72808e]">
                     No matching attendees found.
                   </td>
                 </tr>
               ) : (
-                filtered.map((reg) => (
+                paginatedAttendees.map((reg) => (
                   <tr key={reg.id} className="hover:bg-[#f8fafb]/70">
                     <td className="px-4 py-3">
                       <div className="font-bold text-[#14222e]">
@@ -478,6 +600,46 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer (10 per page) */}
+        {!loading && totalFiltered > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e8edf0] px-5 py-3 text-xs text-[#72808e]">
+            <div>
+              Showing{" "}
+              <strong className="text-[#14222e]">
+                {rangeStart === 1 && rangeEnd === shownCount
+                  ? shownCount
+                  : `${rangeStart}–${rangeEnd}`}
+              </strong>{" "}
+              out of <strong className="text-[#14222e]">{totalFiltered}</strong>{" "}
+              {totalFiltered === 1 ? "attendee" : "attendees"}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold">
+                Page {safePage} of {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={safePage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                aria-label="Previous 10 attendees"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e8edf0] bg-white text-[#14222e] transition hover:border-[#168bd0]/40 hover:text-[#168bd0] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                aria-label="Next 10 attendees"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e8edf0] bg-white text-[#14222e] transition hover:border-[#168bd0]/40 hover:text-[#168bd0] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
