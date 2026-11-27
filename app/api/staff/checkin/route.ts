@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Rate limit: 60 check-ins per minute per staff/IP (Level 3 #14)
+  // 60 check-ins per minute per staff/IP
   const ip = getClientIp(request);
   const limit = checkRateLimit(`checkin:${staff.id}:${ip}`, 60, 60_000);
   if (!limit.allowed) {
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // Level 3 #14: Reject forged, edited, or sequential codes before hitting DB
+  // Reject invalid or tampered ticket signatures
   if (!verifyTicketCodeSignature(ticketCode)) {
     return NextResponse.json({
       result: "invalid",

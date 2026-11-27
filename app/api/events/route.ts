@@ -14,8 +14,7 @@ export async function GET() {
       );
     }
 
-    // Automatically hide events whose scheduled end time has passed.
-    // Full events that have NOT yet ended remain visible so attendees can join the waitlist.
+    // Hide ended events; keep full upcoming events visible for waitlist
     const now = Date.now();
     const activeEvents = ((data ?? []) as PublicEvent[]).filter(
       (ev) => !ev.is_ended && new Date(ev.ends_at).getTime() > now

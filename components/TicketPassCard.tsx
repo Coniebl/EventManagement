@@ -31,6 +31,7 @@ interface TicketPassCardProps {
   qrDataUrl?: string | null;
   onCancel?: () => Promise<void>;
   cancelling?: boolean;
+  onCopyCode?: () => void;
 }
 
 export function TicketPassCard({
@@ -39,6 +40,7 @@ export function TicketPassCard({
   qrDataUrl,
   onCancel,
   cancelling,
+  onCopyCode,
 }: TicketPassCardProps) {
   const [copied, setCopied] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -47,6 +49,7 @@ export function TicketPassCard({
     try {
       await navigator.clipboard.writeText(registration.ticket_code);
       setCopied(true);
+      onCopyCode?.();
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Clipboard may be unavailable in non-HTTPS contexts
@@ -208,8 +211,8 @@ export function TicketPassCard({
           )}
         </div>
 
-        {/* Right Column: QR Code or Waitlist/Cancelled Panel */}
-        <div className="flex flex-col justify-center md:col-span-5">
+        {/* Right Column (shown first on mobile so QR is ready at the door) */}
+        <div className="order-first flex flex-col justify-center md:order-last md:col-span-5">
           {(isConfirmed || isCheckedIn) && qrDataUrl ? (
             <div className="flex h-full flex-col items-center justify-center rounded-xl border border-dashed border-[#168bd0]/35 bg-[#f5f8fa] p-5 text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Calendar,
@@ -11,6 +12,9 @@ import {
   AlertCircle,
   CheckCircle2,
   UserPlus,
+  Copy,
+  Check,
+  X,
 } from "lucide-react";
 import { formatCebuDate, formatCebuTimeRange } from "@/lib/time";
 import {
@@ -27,20 +31,27 @@ interface EventRegistrationClientProps {
 export function EventRegistrationClient({
   eventId,
 }: EventRegistrationClientProps) {
+  const router = useRouter();
   const [event, setEvent] = useState<PublicEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Form state
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [mobile, setMobile] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<RegistrationValidationErrors>(
-    {}
-  );
+  const [fieldErrors, setFieldErrors] = useState<
+    RegistrationValidationErrors & { first_name?: string; last_name?: string }
+  >({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showWaitlistForm, setShowWaitlistForm] = useState(false);
+
+  // Exit save-code reminder state
+  const [hasCopiedCode, setHasCopiedCode] = useState(false);
+  const [pendingExitHref, setPendingExitHref] = useState<string | null>(null);
+  const [modalCopied, setModalCopied] = useState(false);
 
   // Result state (after registration)
   const [result, setResult] = useState<{
@@ -57,7 +68,7 @@ export function EventRegistrationClient({
     emailPreviewUrl?: string;
   } | null>(null);
 
-  // Smooth 5-second auto-fade for the registration confirmation banner
+  // Auto-fade confirmation banner (5s)
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const [bannerFading, setBannerFading] = useState(false);
   const fadeTimerRef = useRef<number | null>(null);
@@ -104,11 +115,20 @@ export function EventRegistrationClient({
     e.preventDefault();
     setSubmitError(null);
 
-    const errors = validateRegistrationInput({
-      full_name: fullName,
+    const combinedName = `${firstName.trim()} ${lastName.trim()}`.trim();
+    const baseErrors = validateRegistrationInput({
+      full_name: combinedName,
       email,
       mobile,
     });
+    const errors: RegistrationValidationErrors & {
+      first_name?: string;
+      last_name?: string;
+    } = { ...baseErrors };
+    delete errors.full_name;
+    if (!firstName.trim()) errors.first_name = "First name is required.";
+    if (!lastName.trim()) errors.last_name = "Last name is required.";
+
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
@@ -118,7 +138,7 @@ export function EventRegistrationClient({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          full_name: fullName,
+          full_name: combinedName,
           email,
           mobile,
           join_waitlist: joinWaitlist,
@@ -144,13 +164,17 @@ export function EventRegistrationClient({
         emailPreviewUrl: data.email_delivery?.previewUrl,
       });
 
-      // Clear form inputs immediately so another attendee can register cleanly
-      setFullName("");
+      // Reset form for next attendee
+      setFirstName("");
+      setLastName("");
       setEmail("");
       setMobile("");
       setShowWaitlistForm(false);
+      setHasCopiedCode(false);
+      setPendingExitHref(null);
+      setModalCopied(false);
 
-      // Show personalized confirmation banner and smoothly fade it out after 5 seconds
+      // Show banner then fade out at 5s
       if (fadeTimerRef.current) window.clearTimeout(fadeTimerRef.current);
       if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
       setShowSuccessBanner(true);
@@ -198,30 +222,56 @@ export function EventRegistrationClient({
 
   // Success View: Show QR Ticket Pass or Waitlist Confirmation
   if (result) {
-    const firstName =
+    const firstWord =
       result.registration.full_name.trim().split(/\s+/)[0] ||
       result.registration.full_name;
+
+    const handleExitAttempt = (href: string) => {
+      if (hasCopiedCode) {
+        setResult(null);
+        setShowSuccessBanner(false);
+        router.push(href);
+        return;
+      }
+      setPendingExitHref(href);
+    };
+
+    const handleModalCopy = async () => {
+      try {
+        await navigator.clipboard.writeText(result.registration.ticket_code);
+        setHasCopiedCode(true);
+        setModalCopied(true);
+      } catch {
+        // Clipboard unavailable
+      }
+    };
+
+    const proceedExit = () => {
+      const target = pendingExitHref || "/";
+      setPendingExitHref(null);
+      setResult(null);
+      setShowSuccessBanner(false);
+      router.push(target);
+    };
 
     return (
       <div className="mx-auto max-w-4xl space-y-4">
         <div className="flex items-center justify-between">
-          <Link
-            href="/"
-            onClick={() => {
-              setResult(null);
-              setShowSuccessBanner(false);
-            }}
+          <button
+            type="button"
+            onClick={() => handleExitAttempt("/")}
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#72808e] hover:text-[#168bd0]"
           >
             <ArrowLeft className="h-4 w-4" />
             All Events
-          </Link>
-          <Link
-            href="/ticket"
+          </button>
+          <button
+            type="button"
+            onClick={() => handleExitAttempt("/ticket")}
             className="text-sm font-semibold text-[#168bd0] hover:underline"
           >
             Look up ticket anytime →
-          </Link>
+          </button>
         </div>
 
         {showSuccessBanner && (
@@ -233,8 +283,8 @@ export function EventRegistrationClient({
             <CheckCircle2 className="h-5 w-5 shrink-0" />
             <div>
               {result.registration.status === "waitlisted"
-                ? `You're #${result.registration.waitlist_position} on the waitlist, ${firstName}!`
-                : `You're registered, ${firstName}! Here is your QR ticket pass.`}
+                ? `You're #${result.registration.waitlist_position} on the waitlist, ${firstWord}!`
+                : `You're registered, ${firstWord}! Here is your QR ticket pass.`}
               {result.emailNotice && (
                 <div className="text-xs font-normal text-[#087b72]">
                   {result.emailNotice}{" "}
@@ -258,7 +308,81 @@ export function EventRegistrationClient({
           registration={result.registration}
           event={result.event}
           qrDataUrl={result.qrDataUrl}
+          onCopyCode={() => setHasCopiedCode(true)}
         />
+
+        {/* Save Ticket Code Reminder Modal */}
+        {pendingExitHref && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050d13]/65 p-4 backdrop-blur-xs">
+            <div className="w-full max-w-md overflow-hidden rounded-2xl border border-[#e8edf0] bg-white shadow-2xl">
+              <div className="hero-ocean flex items-center justify-between px-6 py-4 text-white">
+                <div>
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#42d6df]">
+                    Before You Leave
+                  </p>
+                  <h2 className="text-base font-extrabold leading-tight">
+                    Save Your Ticket Code
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPendingExitHref(null)}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-white transition hover:bg-white/20"
+                  aria-label="Close reminder"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <p className="text-sm leading-relaxed text-[#14222e]">
+                  Make sure to copy or save your ticket code first so you can
+                  retrieve your pass anytime under <strong>My Ticket</strong>.
+                </p>
+
+                <div className="mt-4 flex items-center justify-between gap-2 rounded-xl border border-[#e8edf0] bg-[#f8fafb] px-4 py-3">
+                  <code className="font-mono text-sm font-bold tracking-wider text-[#092d40]">
+                    {result.registration.ticket_code}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={handleModalCopy}
+                    className="btn-primary inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-bold"
+                  >
+                    {modalCopied ? (
+                      <>
+                        <Check className="h-3.5 w-3.5" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" />
+                        Copy Code
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="mt-5 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setPendingExitHref(null)}
+                    className="h-10 rounded-xl border border-[#e8edf0] bg-white px-4 text-xs font-bold text-[#14222e] transition hover:bg-[#f8fafb]"
+                  >
+                    Stay on Ticket
+                  </button>
+                  <button
+                    type="button"
+                    onClick={proceedExit}
+                    className="btn-primary h-10 rounded-xl px-4 text-xs font-bold"
+                  >
+                    {modalCopied ? "Continue" : "Leave Anyway"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -421,13 +545,13 @@ export function EventRegistrationClient({
                   </p>
                 </div>
 
-                {/* Disabled Register Button per Level 1 Acceptance Check */}
+                {/* Disabled Register Button */}
                 <button
                   type="button"
                   disabled
-                  className="w-full cursor-not-allowed rounded-xl bg-[#e8edf0] py-3 text-sm font-bold text-[#72808e]"
+                  className="w-full cursor-not-allowed rounded-xl bg-[#e8edf0] py-3 text-sm font-bold text-[#72808e] opacity-70 dark:bg-[#1b2a36] dark:text-[#6f8392]"
                 >
-                  Full — Register
+                  Register
                 </button>
 
                 {/* Join Waitlist CTA per Level 2 #08 */}
@@ -468,36 +592,70 @@ export function EventRegistrationClient({
                   noValidate
                   className="space-y-4"
                 >
-                  <div>
-                    <label
-                      htmlFor="full_name"
-                      className="block text-xs font-bold text-[#14222e]"
-                    >
-                      Full Name <span className="text-[#b34a4a]">*</span>
-                    </label>
-                    <input
-                      id="full_name"
-                      type="text"
-                      value={fullName}
-                      onChange={(e) => {
-                        setFullName(e.target.value);
-                        setFieldErrors((prev) => ({
-                          ...prev,
-                          full_name: undefined,
-                        }));
-                      }}
-                      placeholder="e.g. Juan Dela Cruz"
-                      className={`mt-1.5 h-11 w-full rounded-xl border bg-[#f8fafb] px-3.5 text-sm text-[#14222e] outline-none transition focus:bg-white ${
-                        fieldErrors.full_name
-                          ? "border-[#b34a4a] focus:ring-2 focus:ring-[#b34a4a]/20"
-                          : "border-[#e8edf0] focus:border-[#168bd0] focus:ring-2 focus:ring-[#168bd0]/15"
-                      }`}
-                    />
-                    {fieldErrors.full_name && (
-                      <p className="mt-1 text-xs font-medium text-[#b34a4a]">
-                        {fieldErrors.full_name}
-                      </p>
-                    )}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label
+                        htmlFor="first_name"
+                        className="block text-xs font-bold text-[#14222e]"
+                      >
+                        First Name <span className="text-[#b34a4a]">*</span>
+                      </label>
+                      <input
+                        id="first_name"
+                        type="text"
+                        value={firstName}
+                        onChange={(e) => {
+                          setFirstName(e.target.value);
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            first_name: undefined,
+                          }));
+                        }}
+                        placeholder="e.g. Juan"
+                        className={`mt-1.5 h-11 w-full rounded-xl border bg-[#f8fafb] px-3.5 text-sm text-[#14222e] outline-none transition focus:bg-white ${
+                          fieldErrors.first_name
+                            ? "border-[#b34a4a] focus:ring-2 focus:ring-[#b34a4a]/20"
+                            : "border-[#e8edf0] focus:border-[#168bd0] focus:ring-2 focus:ring-[#168bd0]/15"
+                        }`}
+                      />
+                      {fieldErrors.first_name && (
+                        <p className="mt-1 text-xs font-medium text-[#b34a4a]">
+                          {fieldErrors.first_name}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="last_name"
+                        className="block text-xs font-bold text-[#14222e]"
+                      >
+                        Last Name <span className="text-[#b34a4a]">*</span>
+                      </label>
+                      <input
+                        id="last_name"
+                        type="text"
+                        value={lastName}
+                        onChange={(e) => {
+                          setLastName(e.target.value);
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            last_name: undefined,
+                          }));
+                        }}
+                        placeholder="e.g. Dela Cruz"
+                        className={`mt-1.5 h-11 w-full rounded-xl border bg-[#f8fafb] px-3.5 text-sm text-[#14222e] outline-none transition focus:bg-white ${
+                          fieldErrors.last_name
+                            ? "border-[#b34a4a] focus:ring-2 focus:ring-[#b34a4a]/20"
+                            : "border-[#e8edf0] focus:border-[#168bd0] focus:ring-2 focus:ring-[#168bd0]/15"
+                        }`}
+                      />
+                      {fieldErrors.last_name && (
+                        <p className="mt-1 text-xs font-medium text-[#b34a4a]">
+                          {fieldErrors.last_name}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <div>

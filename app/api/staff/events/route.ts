@@ -19,9 +19,7 @@ export async function GET() {
     );
   }
 
-  // Automatically flag published events whose scheduled end time has passed as "closed".
-  // If staff later edits & extends the end time into the future and sets it to "published",
-  // it becomes open and visible to attendees again.
+  // Mark past published events as closed
   const now = Date.now();
   const normalized = ((data ?? []) as DashboardEvent[]).map((ev) => {
     const hasPassed = ev.is_ended || new Date(ev.ends_at).getTime() <= now;

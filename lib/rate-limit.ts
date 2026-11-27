@@ -4,9 +4,7 @@ interface RateLimitEntry {
 
 const buckets = new Map<string, RateLimitEntry>();
 
-/**
- * Simple in-memory sliding-window rate limiter for ticket lookup and check-in endpoints.
- */
+// In-memory sliding-window rate limiter
 export function checkRateLimit(
   key: string,
   limit: number,

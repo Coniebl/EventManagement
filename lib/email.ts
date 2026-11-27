@@ -98,7 +98,7 @@ export async function sendTicketEmail(
   const html = buildEmailHtml(params, ticketUrl, Boolean(qrBase64));
   const from = process.env.EMAIL_FROM || "Book&Go Cebu <noreply@bookandgo.local>";
 
-  // Option A: Resend API
+  // Resend API
   if (process.env.RESEND_API_KEY) {
     try {
       const res = await fetch("https://api.resend.com/emails", {
@@ -137,7 +137,7 @@ export async function sendTicketEmail(
     }
   }
 
-  // Option B: Configured SMTP (Mailtrap, etc.)
+  // SMTP (Mailtrap, etc.)
   if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
     try {
       const transporter = nodemailer.createTransport({
@@ -174,7 +174,7 @@ export async function sendTicketEmail(
     }
   }
 
-  // Option C: Auto Ethereal Sandbox (zero-config test inbox when USE_ETHEREAL_SANDBOX=true)
+  // Ethereal sandbox fallback
   if (process.env.USE_ETHEREAL_SANDBOX === "true") {
     try {
       const testAccount = await nodemailer.createTestAccount();
@@ -216,7 +216,7 @@ export async function sendTicketEmail(
     }
   }
 
-  // Fallback: log clearly in server console so registration never fails without SMTP keys
+  // Console fallback when no mail provider is configured
   console.info(
     `[Email Preview - Configure RESEND_API_KEY, SMTP_*, or USE_ETHEREAL_SANDBOX=true to deliver] To: ${params.to} | Subject: ${subject} | Ticket URL: ${ticketUrl}`
   );

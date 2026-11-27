@@ -216,7 +216,7 @@ export function StaffDashboardClient({ staff }: { staff: StaffUser }) {
         </div>
       </div>
 
-      {/* Events Breakdown Table (Level 2 #10) */}
+      {/* Events Summary Table */}
       <div className="card-panel overflow-visible">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8edf0] px-5 py-4">
           <div>

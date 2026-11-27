@@ -112,47 +112,115 @@ export function StaffCheckInClient() {
     [selectedEventId, loadEvents]
   );
 
-  // Camera scanning loop using jsQR (Level 3 #12)
+  // Fast camera scanning loop: uses native BarcodeDetector when available,
+  // with downscaled center-cropped jsQR fallback for Safari/Firefox
   useEffect(() => {
     if (!cameraActive) return;
 
-    const tick = () => {
+    let cancelled = false;
+    type NativeDetector = {
+      detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue?: string }>>;
+    };
+    const DetectorCtor = (
+      window as unknown as {
+        BarcodeDetector?: new (opts: { formats: string[] }) => NativeDetector;
+      }
+    ).BarcodeDetector;
+    const nativeDetector: NativeDetector | null = DetectorCtor
+      ? new DetectorCtor({ formats: ["qr_code"] })
+      : null;
+
+    let lastScanAt = 0;
+    const SCAN_INTERVAL_MS = 80; // ~12 scans/sec without choking main thread
+    const DECODE_SIZE = 400; // Downscale crop for 10x faster jsQR decoding
+
+    const handleDetected = (raw: string) => {
+      if (scanLockRef.current || !raw.trim()) return;
+      scanLockRef.current = true;
+      setPausedForResult(true);
+      submitCheckIn(raw).finally(() => {
+        setTimeout(() => {
+          scanLockRef.current = false;
+          setPausedForResult(false);
+        }, 2000);
+      });
+    };
+
+    const tick = async (ts: number) => {
+      if (cancelled) return;
       const video = videoRef.current;
       const canvas = canvasRef.current;
+
       if (
         video &&
-        canvas &&
-        video.readyState === video.HAVE_ENOUGH_DATA &&
-        !scanLockRef.current
+        video.readyState >= video.HAVE_CURRENT_DATA &&
+        video.videoWidth > 0 &&
+        !scanLockRef.current &&
+        ts - lastScanAt >= SCAN_INTERVAL_MS
       ) {
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-        if (ctx) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const qr = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: "dontInvert",
-          });
+        lastScanAt = ts;
 
-          if (qr?.data) {
-            scanLockRef.current = true;
-            setPausedForResult(true);
-            submitCheckIn(qr.data).finally(() => {
-              // Show result for ~2 seconds then automatically resume scanning
-              setTimeout(() => {
-                scanLockRef.current = false;
-                setPausedForResult(false);
-              }, 2200);
+        // 1. Try hardware-accelerated BarcodeDetector first
+        if (nativeDetector) {
+          try {
+            const codes = await nativeDetector.detect(video);
+            const first = codes.find((c) => c.rawValue)?.rawValue;
+            if (first) {
+              handleDetected(first);
+              rafRef.current = requestAnimationFrame(tick);
+              return;
+            }
+          } catch {
+            // Fall through to jsQR
+          }
+        }
+
+        // 2. Fallback: center-cropped, downscaled jsQR decode
+        if (canvas) {
+          const ctx = canvas.getContext("2d", { willReadFrequently: true });
+          if (ctx) {
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+            const cropSize = Math.round(Math.min(vw, vh) * 0.8);
+            const sx = Math.round((vw - cropSize) / 2);
+            const sy = Math.round((vh - cropSize) / 2);
+
+            if (canvas.width !== DECODE_SIZE || canvas.height !== DECODE_SIZE) {
+              canvas.width = DECODE_SIZE;
+              canvas.height = DECODE_SIZE;
+            }
+
+            ctx.drawImage(
+              video,
+              sx,
+              sy,
+              cropSize,
+              cropSize,
+              0,
+              0,
+              DECODE_SIZE,
+              DECODE_SIZE
+            );
+            const imageData = ctx.getImageData(0, 0, DECODE_SIZE, DECODE_SIZE);
+            const qr = jsQR(imageData.data, DECODE_SIZE, DECODE_SIZE, {
+              inversionAttempts: "attemptBoth",
             });
+
+            if (qr?.data) {
+              handleDetected(qr.data);
+            }
           }
         }
       }
-      rafRef.current = requestAnimationFrame(tick);
+
+      if (!cancelled) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
     };
 
     rafRef.current = requestAnimationFrame(tick);
     return () => {
+      cancelled = true;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, [cameraActive, submitCheckIn]);
@@ -167,7 +235,11 @@ export function StaffCheckInClient() {
         return;
       }
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
         audio: false,
       });
       streamRef.current = stream;
@@ -392,26 +464,29 @@ export function StaffCheckInClient() {
           </div>
 
           {/* Manual Entry Form */}
-          <form onSubmit={handleManualSubmit} className="flex gap-2">
+          <form
+            onSubmit={handleManualSubmit}
+            className="flex flex-col gap-2 sm:flex-row"
+          >
             <input
               ref={inputRef}
               type="text"
               value={ticketCode}
               onChange={(e) => setTicketCode(e.target.value.toUpperCase())}
               placeholder="e.g. CDM-4T6W9X2K-24B6"
-              className="h-11 flex-1 rounded-xl border border-[#e8edf0] bg-[#f8fafb] px-4 font-mono text-sm font-bold uppercase tracking-wider text-[#14222e] outline-none focus:border-[#168bd0] focus:bg-white focus:ring-2 focus:ring-[#168bd0]/15"
+              className="h-11 w-full flex-1 rounded-xl border border-[#e8edf0] bg-[#f8fafb] px-4 font-mono text-sm font-bold uppercase tracking-wider text-[#14222e] outline-none focus:border-[#168bd0] focus:bg-white focus:ring-2 focus:ring-[#168bd0]/15"
             />
             <button
               type="submit"
               disabled={submitting || !ticketCode.trim()}
-              className="btn-primary h-11 rounded-xl px-5 text-xs font-extrabold"
+              className="btn-primary h-11 shrink-0 rounded-xl px-5 text-xs font-extrabold"
             >
               {submitting ? "Checking..." : "Check In"}
             </button>
           </form>
         </div>
 
-        {/* Right: Live Door Counter (Level 2 #10) */}
+        {/* Live Door Counter */}
         <div className="card-panel flex flex-col justify-between p-6 lg:col-span-4">
           <div>
             <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#1392b4]">

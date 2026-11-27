@@ -50,9 +50,6 @@ export function getCebuDateBadge(iso: string): { month: string; day: string } {
   return { month, day };
 }
 
-/**
- * Convert an ISO timestamp to Cebu local parts for HTML date/time inputs
- */
 export function isoToCebuDateAndTime(iso: string): {
   date: string;
   time: string;
@@ -75,9 +72,6 @@ export function isoToCebuDateAndTime(iso: string): {
   };
 }
 
-/**
- * Convert Cebu date ("YYYY-MM-DD") and time ("HH:MM") to an ISO string with +08:00 offset
- */
 export function cebuDateAndTimeToIso(dateStr: string, timeStr: string): string {
   return `${dateStr}T${timeStr}:00+08:00`;
 }

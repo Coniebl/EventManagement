@@ -77,7 +77,7 @@ export async function GET(
     "Checked In By",
   ];
 
-  // Optional plain CSV fallback via ?format=csv
+  // Optional CSV export (?format=csv)
   if (format === "csv") {
     const lines = [
       escapeCsvCell(titleText),
@@ -110,8 +110,7 @@ export async function GET(
     });
   }
 
-  // Default: Styled Excel (.xlsx) with bold uppercase Row 1 title,
-  // CubePass ocean-blue header cells, and equal column widths
+  // Default styled Excel (.xlsx) export
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Book&Go Cebu";
   workbook.created = new Date();

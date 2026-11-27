@@ -5,7 +5,7 @@ import { generateTicketQrDataUrl } from "@/lib/ticket";
 import { normalizeMobile } from "@/lib/validation";
 
 export async function POST(request: Request) {
-  // Rate limit: 20 lookups per minute per IP (Level 3 #14)
+  // 20 lookups per minute per IP
   const ip = getClientIp(request);
   const limit = checkRateLimit(`ticket-lookup:${ip}`, 20, 60_000);
   if (!limit.allowed) {

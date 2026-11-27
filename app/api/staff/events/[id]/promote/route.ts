@@ -36,7 +36,7 @@ export async function POST(
     return NextResponse.json({ error: data.message }, { status: 400 });
   }
 
-  // Send waitlist promotion email (Level 3 #15)
+  // Send promotion email
   const reg = data.registration;
   const event = data.event;
   const emailDelivery = await sendTicketEmail({

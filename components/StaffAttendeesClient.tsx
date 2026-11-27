@@ -298,10 +298,10 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           {!eventParam && (
             <CubeSelect
-              className="w-64"
+              className="w-full sm:w-64"
               menuAlign="right"
               value={activeEventId}
               onChange={(val) => {
@@ -664,7 +664,7 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
         )}
       </div>
 
-      {/* CubePass-Styled Cancel Registration Confirmation Modal */}
+      {/* Cancel Registration Modal */}
       {cancelTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050d13]/65 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md overflow-hidden rounded-2xl border border-[#e8edf0] bg-white shadow-2xl">

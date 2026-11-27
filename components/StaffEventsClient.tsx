@@ -76,7 +76,7 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // Notice banner with smooth 4-second fade-out
+  // Auto-fade notice (4s)
   const [notice, setNotice] = useState<string | null>(null);
   const [noticeFading, setNoticeFading] = useState(false);
   const fadeTimerRef = useRef<number | null>(null);
@@ -155,8 +155,7 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
     setModalOpen(true);
   };
 
-  // If organizer extends a closed event's date/end time into the future,
-  // automatically flip status back to Published so it becomes visible to attendees again.
+  // Re-open closed event if end time is extended into the future
   const updateScheduleField = (
     field: "date" | "startTime" | "endTime",
     value: string
@@ -195,7 +194,7 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
       return;
     }
 
-    // If end time is already in the past and status was set to published, save as closed
+    // Save as closed if end time is already past
     const effectiveStatus: EventStatus =
       form.status === "published" && new Date(ends_at).getTime() <= Date.now()
         ? "closed"
@@ -592,7 +591,7 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
                 <div>
                   <label className="block text-xs font-bold text-[#14222e]">
                     Date (Cebu) *

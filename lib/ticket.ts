@@ -35,12 +35,7 @@ function computeSignatureTag(payload: string): string {
     .toUpperCase();
 }
 
-/**
- * Generates a cryptographically random, HMAC-signed ticket code.
- * Format: <PREFIX>-<8_RANDOM_CHARS>-<4_HMAC_HEX>
- * Example: CDM-7K3P9Q4M-C188
- * Sequential or guessed codes (e.g. CDM-000001) fail HMAC verification immediately.
- */
+// Format: PREFIX-8RANDOM-4HMAC (e.g. CDM-7K3P9Q4M-C188)
 export function generateSignedTicketCode(eventTitle?: string): string {
   const prefix = derivePrefix(eventTitle);
   const bytes = crypto.randomBytes(8);
@@ -53,9 +48,6 @@ export function generateSignedTicketCode(eventTitle?: string): string {
   return `${base}-${sig}`;
 }
 
-/**
- * Verifies the HMAC signature embedded in a ticket code using timing-safe comparison.
- */
 export function verifyTicketCodeSignature(rawCode: string): boolean {
   const code = rawCode.trim().toUpperCase();
   const parts = code.split("-");
@@ -73,9 +65,6 @@ export function verifyTicketCodeSignature(rawCode: string): boolean {
   return crypto.timingSafeEqual(a, b);
 }
 
-/**
- * Generates a crisp QR code Data URL containing the signed ticket code.
- */
 export async function generateTicketQrDataUrl(
   ticketCode: string
 ): Promise<string> {
