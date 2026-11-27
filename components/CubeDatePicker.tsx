@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 interface CubeDatePickerProps {
-  value: string; // YYYY-MM-DD
+  value: string; // YYYY-MM-DD or "" when empty
   onChange: (value: string) => void;
+  placeholder?: string;
+  allowClear?: boolean;
+  placement?: "top" | "bottom";
+  align?: "left" | "right";
+  className?: string;
 }
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -37,7 +42,15 @@ function toYmd(y: number, m: number, d: number): string {
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-export function CubeDatePicker({ value, onChange }: CubeDatePickerProps) {
+export function CubeDatePicker({
+  value,
+  onChange,
+  placeholder = "Select date",
+  allowClear = false,
+  placement = "top",
+  align = "left",
+  className = "",
+}: CubeDatePickerProps) {
   const [open, setOpen] = useState(false);
   const parsed = parseYmd(value);
   const [viewYear, setViewYear] = useState(parsed.y);
@@ -109,27 +122,58 @@ export function CubeDatePicker({ value, onChange }: CubeDatePickerProps) {
 
   const now = new Date();
   const todayYmd = toYmd(now.getFullYear(), now.getMonth() + 1, now.getDate());
-  const displayLabel = `${MONTHS[parsed.m - 1]?.slice(0, 3)} ${String(
-    parsed.d
-  ).padStart(2, "0")}, ${parsed.y}`;
+  const displayLabel = value
+    ? `${MONTHS[parsed.m - 1]?.slice(0, 3)} ${String(parsed.d).padStart(
+        2,
+        "0"
+      )}, ${parsed.y}`
+    : placeholder;
 
   return (
-    <div ref={rootRef} className="relative">
-      <button
-        type="button"
-        onClick={openPicker}
-        className={`flex h-10 w-full items-center justify-between gap-2 rounded-xl border px-3 text-xs font-semibold transition ${
-          open
-            ? "border-[#168bd0] bg-white text-[#14222e] ring-2 ring-[#20c9db]/25"
-            : "border-[#e8edf0] bg-[#f8fafb] text-[#14222e] hover:border-[#168bd0]/50"
-        }`}
-      >
-        <span className="truncate">{displayLabel}</span>
-        <Calendar className="h-3.5 w-3.5 shrink-0 text-[#168bd0]" />
-      </button>
+    <div ref={rootRef} className={`relative ${className}`}>
+      <div className="flex items-center">
+        <button
+          type="button"
+          onClick={openPicker}
+          className={`flex h-10 w-full items-center justify-between gap-2 rounded-xl border px-3 text-xs font-semibold transition ${
+            open || value
+              ? "border-[#168bd0]/60 bg-white text-[#14222e] ring-2 ring-[#20c9db]/20"
+              : "border-[#e8edf0] bg-[#f8fafb] text-[#72808e] hover:border-[#168bd0]/50 hover:text-[#14222e]"
+          }`}
+        >
+          <span className="flex items-center gap-2 truncate">
+            <Calendar className="h-3.5 w-3.5 shrink-0 text-[#168bd0]" />
+            <span className="truncate">{displayLabel}</span>
+          </span>
+          {allowClear && value && (
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label="Clear date"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.stopPropagation();
+                  onChange("");
+                }
+              }}
+              className="rounded p-0.5 text-[#72808e] hover:bg-[#e1f6fb] hover:text-[#0878ba]"
+            >
+              <X className="h-3 w-3" />
+            </span>
+          )}
+        </button>
+      </div>
 
       {open && (
-        <div className="absolute bottom-full left-0 z-50 mb-2 w-68 overflow-hidden rounded-2xl border border-[#e8edf0] bg-white shadow-2xl">
+        <div
+          className={`absolute z-50 w-68 overflow-hidden rounded-2xl border border-[#e8edf0] bg-white shadow-2xl ${
+            placement === "bottom" ? "top-full mt-2" : "bottom-full mb-2"
+          } ${align === "right" ? "right-0" : "left-0"}`}
+        >
           {/* Calendar Ocean Header */}
           <div className="hero-ocean flex items-center justify-between px-3.5 py-2.5 text-white">
             <button
@@ -166,7 +210,7 @@ export function CubeDatePicker({ value, onChange }: CubeDatePickerProps) {
             <div className="mt-1 grid grid-cols-7 gap-0.5 text-center">
               {cells.map((cell) => {
                 const cellYmd = toYmd(cell.y, cell.m, cell.d);
-                const isSelected = cellYmd === value;
+                const isSelected = Boolean(value) && cellYmd === value;
                 const isToday = cellYmd === todayYmd;
                 return (
                   <button
@@ -194,16 +238,30 @@ export function CubeDatePicker({ value, onChange }: CubeDatePickerProps) {
 
             {/* Footer */}
             <div className="mt-2.5 flex items-center justify-between border-t border-[#e8edf0] pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(todayYmd);
-                  setOpen(false);
-                }}
-                className="text-[11px] font-bold text-[#168bd0] hover:underline"
-              >
-                Today
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(todayYmd);
+                    setOpen(false);
+                  }}
+                  className="text-[11px] font-bold text-[#168bd0] hover:underline"
+                >
+                  Today
+                </button>
+                {allowClear && value && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange("");
+                      setOpen(false);
+                    }}
+                    className="text-[11px] font-semibold text-[#b34a4a] hover:underline"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}

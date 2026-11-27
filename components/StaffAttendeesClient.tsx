@@ -67,6 +67,9 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
   const statusMenuRef = useRef<HTMLDivElement | null>(null);
   const [page, setPage] = useState(1);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<RegistrationRecord | null>(
+    null
+  );
 
   useEffect(() => {
     if (!statusMenuOpen) return;
@@ -84,6 +87,7 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
   const [banner, setBanner] = useState<{
     type: "success" | "error";
     text: string;
+    previewUrl?: string;
   } | null>(null);
 
   const loadEvents = useCallback(async () => {
@@ -168,9 +172,15 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
         setBanner({ type: "error", text: data.error || "Promotion failed." });
         return;
       }
+      const emailSent = Boolean(data.email_delivery?.sent);
       setBanner({
         type: "success",
-        text: `Promoted ${data.registration.full_name} (${data.registration.ticket_code}) to Confirmed!`,
+        text: `Promoted ${data.registration.full_name} (${data.registration.ticket_code}) to Confirmed!${
+          emailSent
+            ? " Promotion email with QR pass sent."
+            : ""
+        }`,
+        previewUrl: data.email_delivery?.previewUrl,
       });
       await Promise.all([loadEvents(), loadRegistrations(activeEventId)]);
     } finally {
@@ -201,8 +211,9 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
     }
   };
 
-  const handleCancel = async (reg: RegistrationRecord) => {
-    if (!confirm(`Cancel registration for ${reg.full_name}?`)) return;
+  const confirmCancelRegistration = async () => {
+    if (!cancelTarget) return;
+    const reg = cancelTarget;
     setBusyId(reg.id);
     setBanner(null);
     try {
@@ -214,6 +225,7 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
         setBanner({ type: "error", text: data.error || "Cancellation failed." });
         return;
       }
+      setCancelTarget(null);
       setBanner({
         type: "success",
         text: `Cancelled registration for ${reg.full_name}.`,
@@ -388,13 +400,23 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
               : "border-[#f5c2c2] bg-[#ffeded] text-[#b34a4a]"
           }`}
         >
-          <span className="flex items-center gap-2">
+          <span className="flex flex-wrap items-center gap-2">
             {banner.type === "success" ? (
-              <CheckCircle2 className="h-4 w-4" />
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
             ) : (
-              <AlertCircle className="h-4 w-4" />
+              <AlertCircle className="h-4 w-4 shrink-0" />
             )}
-            {banner.text}
+            <span>{banner.text}</span>
+            {banner.previewUrl && (
+              <a
+                href={banner.previewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:opacity-80"
+              >
+                Open Email Preview ↗
+              </a>
+            )}
           </span>
           <button type="button" onClick={() => setBanner(null)}>
             <X className="h-4 w-4" />
@@ -585,7 +607,7 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
                             <button
                               type="button"
                               disabled={busyId === reg.id}
-                              onClick={() => handleCancel(reg)}
+                              onClick={() => setCancelTarget(reg)}
                               className="inline-flex items-center gap-1 rounded-lg border border-[#f5c2c2] bg-white px-2.5 py-1 text-[11px] font-bold text-[#b34a4a] hover:bg-[#ffeded] disabled:opacity-50"
                             >
                               <XCircle className="h-3 w-3" />
@@ -641,6 +663,87 @@ export function StaffAttendeesClient({ staff }: { staff: StaffUser }) {
           </div>
         )}
       </div>
+
+      {/* CubePass-Styled Cancel Registration Confirmation Modal */}
+      {cancelTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050d13]/65 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-[#e8edf0] bg-white shadow-2xl">
+            <div className="hero-ocean flex items-center justify-between px-6 py-4 text-white">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 text-[#42d6df]">
+                  <XCircle className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#42d6df]">
+                    Confirm Action
+                  </p>
+                  <h2 className="text-base font-extrabold leading-tight">
+                    Cancel Registration
+                  </h2>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={busyId === cancelTarget.id}
+                onClick={() => setCancelTarget(null)}
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-50"
+                aria-label="Close modal"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <p className="text-sm leading-relaxed text-[#14222e]">
+                Are you sure you want to cancel the registration for{" "}
+                <strong>{cancelTarget.full_name}</strong>?
+              </p>
+
+              <div className="mt-3.5 rounded-xl border border-[#e8edf0] bg-[#f8fafb] px-4 py-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#72808e]">Ticket Code</span>
+                  <code className="font-mono font-bold text-[#092d40]">
+                    {cancelTarget.ticket_code}
+                  </code>
+                </div>
+                <div className="mt-1.5 flex items-center justify-between">
+                  <span className="text-[#72808e]">Email</span>
+                  <span className="font-semibold text-[#14222e]">
+                    {cancelTarget.email}
+                  </span>
+                </div>
+              </div>
+
+              <p className="mt-3 text-xs text-[#72808e]">
+                This will free up their spot and invalidate their QR ticket at
+                the door.
+              </p>
+
+              <div className="mt-5 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  disabled={busyId === cancelTarget.id}
+                  onClick={() => setCancelTarget(null)}
+                  className="h-10 rounded-xl border border-[#e8edf0] bg-white px-4 text-xs font-bold text-[#14222e] transition hover:bg-[#f8fafb] disabled:opacity-50"
+                >
+                  Keep Registration
+                </button>
+                <button
+                  type="button"
+                  disabled={busyId === cancelTarget.id}
+                  onClick={confirmCancelRegistration}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#c93b3b] px-4 text-xs font-bold text-white shadow-sm transition hover:bg-[#b33232] disabled:opacity-60"
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                  {busyId === cancelTarget.id
+                    ? "Cancelling..."
+                    : "Yes, Cancel"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

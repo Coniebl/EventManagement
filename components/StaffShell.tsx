@@ -46,30 +46,30 @@ export function StaffShell({ staff, children }: StaffShellProps) {
     <div className="min-h-screen bg-[#f5f8fa] lg:grid lg:grid-cols-[248px_1fr]">
       {/* Desktop Sidebar */}
       <aside className="hidden border-r border-[#e8edf0] bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:px-5 lg:py-6">
-        <div className="flex items-center gap-2.5 px-2 pb-7">
+        <div className="mb-5 flex items-center gap-3 border-b border-[#e8edf0] px-1.5 pb-5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/cubepass-logo.png"
-            alt="CubePass Calendar Logo"
-            className="h-8 w-8 shrink-0 object-contain dark:invert"
+            alt="Book&Go Logo"
+            className="h-9 w-9 shrink-0 object-contain dark:invert"
           />
-          <div className="leading-tight">
+          <div className="min-w-0 leading-tight">
             <div className="text-lg font-extrabold tracking-tight text-[#14222e]">
-              CubePass
+              Book&amp;Go
             </div>
-            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#72808e]">
+            <div className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#72808e]">
               Admin Console
             </div>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto shrink-0">
             <ThemeToggle />
           </div>
         </div>
 
-        <div className="px-3 pb-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#9ba8b2]">
+        <div className="px-3.5 pb-2.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#9ba8b2]">
           Operations
         </div>
-        <nav className="space-y-1">
+        <nav className="space-y-1.5">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const active = item.exact
@@ -79,29 +79,29 @@ export function StaffShell({ staff, children }: StaffShellProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
+                className={`flex items-center gap-3.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition ${
                   active
-                    ? "bg-gradient-to-r from-[#20c9db]/15 to-[#168bd0]/5 text-[#0878ba] shadow-[inset_3px_0_#20c9db]"
+                    ? "bg-gradient-to-r from-[#20c9db]/18 to-[#168bd0]/8 text-[#0878ba] ring-1 ring-[#20c9db]/35"
                     : "text-[#72808e] hover:bg-[#f8fafb] hover:text-[#14222e]"
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4 shrink-0" />
                 <span>{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="mt-auto space-y-3 pt-6">
+        <div className="mt-auto space-y-3.5 pt-6">
           <Link
             href="/"
-            className="flex items-center justify-center gap-2 rounded-xl border border-[#e8edf0] bg-[#f8fafb] px-3 py-2.5 text-xs font-bold text-[#14222e] transition hover:border-[#168bd0]/40 hover:text-[#168bd0]"
+            className="flex items-center justify-center gap-2 rounded-xl border border-[#e8edf0] bg-[#f8fafb] px-3.5 py-2.5 text-xs font-bold text-[#14222e] transition hover:border-[#168bd0]/40 hover:text-[#168bd0]"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             View Attendee Site
           </Link>
 
-          <div className="flex items-center gap-2.5 border-t border-[#e8edf0] pt-4">
+          <div className="flex items-center gap-3 border-t border-[#e8edf0] pt-4">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#dff7fa] text-xs font-extrabold text-[#087ea0]">
               {initials}
             </div>
@@ -134,12 +134,12 @@ export function StaffShell({ staff, children }: StaffShellProps) {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/cubepass-logo.png"
-                alt="CubePass Calendar Logo"
+                alt="Book&Go Logo"
                 className="h-7 w-7 shrink-0 object-contain dark:invert"
               />
               <div>
                 <div className="text-sm font-extrabold text-[#14222e]">
-                  CubePass Admin
+                  Book&amp;Go Admin
                 </div>
                 <div className="text-[10px] font-semibold text-[#1392b4]">
                   {staff.name} ·{" "}

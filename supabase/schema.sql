@@ -964,6 +964,47 @@ begin
 end;
 $$;
 
+-- Delete Closed Event (Organizer only)
+create or replace function public.rpc_delete_closed_event(
+  p_event_id uuid,
+  p_staff_user_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_event public.events%rowtype;
+  v_staff_name text;
+begin
+  select * into v_event from public.events where id = p_event_id for update;
+  if not found then
+    return jsonb_build_object('error', 'event_not_found', 'message', 'Event not found.');
+  end if;
+
+  -- Allow deleting explicitly closed events or published events whose end time has passed
+  if not (v_event.status = 'closed' or (v_event.status = 'published' and v_event.ends_at <= now())) then
+    return jsonb_build_object('error', 'not_closed', 'message', 'Only closed events can be deleted.');
+  end if;
+
+  select name into v_staff_name from public.staff_users where id = p_staff_user_id;
+
+  insert into public.audit_logs (staff_user_id, staff_name, action, target_id, details)
+  values (
+    p_staff_user_id,
+    coalesce(v_staff_name, 'Staff'),
+    'event_deleted',
+    v_event.id::text,
+    jsonb_build_object('title', v_event.title, 'venue', v_event.venue)
+  );
+
+  delete from public.events where id = p_event_id;
+
+  return jsonb_build_object('ok', true, 'title', v_event.title);
+end;
+$$;
+
 -- Audit Logs (Level 3 #16)
 create or replace function public.rpc_get_audit_logs(p_limit integer default 100)
 returns jsonb

@@ -64,7 +64,7 @@ export function TicketPassCard({
       <div className="hero-ocean flex flex-wrap items-center justify-between gap-3 px-7 py-5 text-white">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#42d6df]">
-            CubePass Ticket
+            Book&amp;Go Ticket
           </span>
           <h2 className="mt-1 text-2xl font-bold leading-snug tracking-tight">
             {event.title}

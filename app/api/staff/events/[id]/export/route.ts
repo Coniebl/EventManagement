@@ -113,7 +113,7 @@ export async function GET(
   // Default: Styled Excel (.xlsx) with bold uppercase Row 1 title,
   // CubePass ocean-blue header cells, and equal column widths
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "CubePass Cebu";
+  workbook.creator = "Book&Go Cebu";
   workbook.created = new Date();
 
   const sheet = workbook.addWorksheet("Attendees", {

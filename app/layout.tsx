@@ -2,9 +2,13 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CubePass — Event Registration & QR Check-in",
+  title: "Book&Go",
   description:
-    "Browse upcoming Cebu tech and community events on CubePass, register for free, get your QR code ticket, and check in smoothly at the door.",
+    "Browse upcoming Cebu tech and community events on Book&Go, register for free, get your QR code ticket, and check in smoothly at the door.",
+  icons: {
+    icon: "/cubepass-logo.png",
+    apple: "/cubepass-logo.png",
+  },
 };
 
 const THEME_INIT_SCRIPT = `

@@ -13,6 +13,7 @@ import {
   Lock,
   ChevronLeft,
   ChevronRight,
+  Trash2,
 } from "lucide-react";
 import {
   formatCebuDate,
@@ -69,6 +70,11 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
   const [form, setForm] = useState<EventFormState>(defaultForm());
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Delete closed event confirmation modal
+  const [deleteTarget, setDeleteTarget] = useState<DashboardEvent | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Notice banner with smooth 4-second fade-out
   const [notice, setNotice] = useState<string | null>(null);
@@ -233,6 +239,30 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
     }
   };
 
+  const confirmDeleteEvent = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/staff/events/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDeleteError(data.error || "Could not delete event.");
+        return;
+      }
+      const deletedTitle = deleteTarget.title;
+      setDeleteTarget(null);
+      showNotice(`Deleted "${deletedTitle}" successfully.`);
+      await load();
+    } catch {
+      setDeleteError("Network error while deleting.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const filtered = useMemo(() => {
     const base =
       filter === "all" ? events : events.filter((e) => e.status === filter);
@@ -374,14 +404,30 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
                   </span>
 
                   {isOrganizer && (
-                    <button
-                      type="button"
-                      onClick={() => openEdit(ev)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-[#e8edf0] px-2.5 py-1 text-[11px] font-bold text-[#14222e] hover:border-[#168bd0]/40 hover:text-[#168bd0]"
-                    >
-                      <Pencil className="h-3 w-3" />
-                      Edit
-                    </button>
+                    <div className="inline-flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(ev)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-[#e8edf0] px-2.5 py-1 text-[11px] font-bold text-[#14222e] hover:border-[#168bd0]/40 hover:text-[#168bd0]"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        Edit
+                      </button>
+                      {ev.status === "closed" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeleteError(null);
+                            setDeleteTarget(ev);
+                          }}
+                          title="Delete closed event"
+                          className="inline-flex items-center gap-1 rounded-lg border border-[#f5c2c2] bg-white px-2.5 py-1 text-[11px] font-bold text-[#b34a4a] transition hover:bg-[#ffeded]"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -667,6 +713,93 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Closed Event Confirmation Modal (Organizer only) */}
+      {deleteTarget && isOrganizer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050d13]/65 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-[#e8edf0] bg-white shadow-2xl">
+            <div className="hero-ocean flex items-center justify-between px-6 py-4 text-white">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 text-[#42d6df]">
+                  <Trash2 className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#42d6df]">
+                    Confirm Deletion
+                  </p>
+                  <h2 className="text-base font-extrabold leading-tight">
+                    Delete Closed Event
+                  </h2>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-white transition hover:bg-white/20 disabled:opacity-50"
+                aria-label="Close modal"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <p className="text-sm leading-relaxed text-[#14222e]">
+                Are you sure you want to permanently delete{" "}
+                <strong>{deleteTarget.title}</strong>?
+              </p>
+
+              <div className="mt-3.5 rounded-xl border border-[#e8edf0] bg-[#f8fafb] px-4 py-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#72808e]">Venue</span>
+                  <span className="font-semibold text-[#14222e]">
+                    {deleteTarget.venue}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex items-center justify-between">
+                  <span className="text-[#72808e]">Registrations</span>
+                  <span className="font-semibold text-[#14222e]">
+                    {deleteTarget.active_count} active ·{" "}
+                    {deleteTarget.checked_in_count} checked in
+                  </span>
+                </div>
+              </div>
+
+              <p className="mt-3 text-xs text-[#72808e]">
+                This action cannot be undone and will remove the closed event
+                along with its registration records.
+              </p>
+
+              {deleteError && (
+                <div className="mt-3 flex items-center gap-2 rounded-xl border border-[#f5c2c2] bg-[#ffeded] px-3 py-2 text-xs font-semibold text-[#b34a4a]">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{deleteError}</span>
+                </div>
+              )}
+
+              <div className="mt-5 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => setDeleteTarget(null)}
+                  className="h-10 rounded-xl border border-[#e8edf0] bg-white px-4 text-xs font-bold text-[#14222e] transition hover:bg-[#f8fafb] disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={confirmDeleteEvent}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#c93b3b] px-4 text-xs font-bold text-white shadow-sm transition hover:bg-[#b33232] disabled:opacity-60"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {deleting ? "Deleting..." : "Yes, Delete Event"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

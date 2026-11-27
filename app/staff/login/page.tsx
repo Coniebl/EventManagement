@@ -47,12 +47,12 @@ function StaffLoginForm() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/cubepass-logo.png"
-          alt="CubePass Calendar Logo"
+          alt="Book&Go Logo"
           className="h-9 w-9 shrink-0 object-contain dark:invert"
         />
         <div>
           <div className="text-lg font-bold tracking-tight text-[#14222e]">
-            CubePass Admin
+            Book&amp;Go Admin
           </div>
           <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#72808e]">
             Staff & Organizer Portal

@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { RefreshCw, ClipboardList } from "lucide-react";
-import { formatCebuDateTime } from "@/lib/time";
+import { useEffect, useMemo, useState } from "react";
+import {
+  RefreshCw,
+  ClipboardList,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+} from "lucide-react";
+import { formatCebuDateTime, isoToCebuDateAndTime } from "@/lib/time";
+import { CubeDatePicker } from "./CubeDatePicker";
 import type { AuditLogEntry } from "@/lib/types";
 
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
@@ -13,6 +20,10 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   event_updated: {
     label: "Event Updated",
     color: "bg-[#ddf8fb] text-[#0795a6]",
+  },
+  event_deleted: {
+    label: "Event Deleted",
+    color: "bg-[#ffeded] text-[#b34a4a]",
   },
   check_in: {
     label: "Check-in",
@@ -32,9 +43,13 @@ const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   },
 };
 
+const PAGE_SIZE = 10;
+
 export function StaffAuditClient() {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(""); // YYYY-MM-DD in Cebu time
+  const [page, setPage] = useState(1);
 
   const load = async () => {
     setLoading(true);
@@ -64,6 +79,23 @@ export function StaffAuditClient() {
     };
   }, []);
 
+  const filteredLogs = useMemo(() => {
+    if (!selectedDate) return logs;
+    return logs.filter((log) => {
+      const { date } = isoToCebuDateAndTime(log.created_at);
+      return date === selectedDate;
+    });
+  }, [logs, selectedDate]);
+
+  const totalFiltered = filteredLogs.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const startIdx = (safePage - 1) * PAGE_SIZE;
+  const paginatedLogs = filteredLogs.slice(startIdx, startIdx + PAGE_SIZE);
+  const shownCount = paginatedLogs.length;
+  const rangeStart = totalFiltered === 0 ? 0 : startIdx + 1;
+  const rangeEnd = startIdx + shownCount;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -83,19 +115,40 @@ export function StaffAuditClient() {
         <button
           type="button"
           onClick={load}
-          className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#e8edf0] bg-white px-3.5 text-xs font-bold text-[#14222e]"
+          className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[#e8edf0] bg-white px-3.5 text-xs font-bold text-[#14222e] transition hover:border-[#168bd0]/40 hover:text-[#168bd0]"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Refresh
         </button>
       </div>
 
-      <div className="card-panel overflow-hidden">
+      <div className="card-panel overflow-visible">
+        {/* Date Filter Toolbar right above the table on the left side */}
+        <div className="flex items-center justify-start gap-2 border-b border-[#e8edf0] px-5 py-3">
+          <CubeDatePicker
+            className="w-48"
+            value={selectedDate}
+            onChange={(val) => {
+              setSelectedDate(val);
+              setPage(1);
+            }}
+            placeholder="Filter by date"
+            allowClear
+            placement="bottom"
+            align="left"
+          />
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] border-collapse text-left text-xs">
             <thead>
               <tr className="bg-[#f8fafb] text-[10px] font-extrabold uppercase tracking-wider text-[#72808e]">
-                <th className="px-5 py-3">When (Cebu Time)</th>
+                <th className="px-5 py-3">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Clock className="h-3 w-3 text-[#168bd0]" />
+                    When (Cebu Time)
+                  </span>
+                </th>
                 <th className="px-4 py-3">Staff Member</th>
                 <th className="px-4 py-3">Action</th>
                 <th className="px-4 py-3">Details</th>
@@ -104,19 +157,27 @@ export function StaffAuditClient() {
             <tbody className="divide-y divide-[#e8edf0]">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-5 py-10 text-center text-[#72808e]">
+                  <td
+                    colSpan={4}
+                    className="px-5 py-10 text-center text-[#72808e]"
+                  >
                     Loading audit logs...
                   </td>
                 </tr>
-              ) : logs.length === 0 ? (
+              ) : paginatedLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-5 py-10 text-center text-[#72808e]">
+                  <td
+                    colSpan={4}
+                    className="px-5 py-10 text-center text-[#72808e]"
+                  >
                     <ClipboardList className="mx-auto mb-2 h-6 w-6 text-[#9ba8b2]" />
-                    No audit log entries yet.
+                    {selectedDate
+                      ? "No audit log entries match the selected date."
+                      : "No audit log entries yet."}
                   </td>
                 </tr>
               ) : (
-                logs.map((log) => {
+                paginatedLogs.map((log) => {
                   const meta = ACTION_LABELS[log.action] ?? {
                     label: log.action,
                     color: "bg-[#e8edf0] text-[#14222e]",
@@ -127,7 +188,9 @@ export function StaffAuditClient() {
                     details.attendee_name
                       ? `Attendee: ${details.attendee_name}`
                       : null,
-                    details.ticket_code ? `Ticket: ${details.ticket_code}` : null,
+                    details.ticket_code
+                      ? `Ticket: ${details.ticket_code}`
+                      : null,
                     details.status ? `Status: ${details.status}` : null,
                     details.capacity ? `Capacity: ${details.capacity}` : null,
                   ]
@@ -159,6 +222,46 @@ export function StaffAuditClient() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer (10 per page) */}
+        {!loading && totalFiltered > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e8edf0] px-5 py-3 text-xs text-[#72808e]">
+            <div>
+              Showing{" "}
+              <strong className="text-[#14222e]">
+                {rangeStart === 1 && rangeEnd === shownCount
+                  ? shownCount
+                  : `${rangeStart}–${rangeEnd}`}
+              </strong>{" "}
+              out of <strong className="text-[#14222e]">{totalFiltered}</strong>{" "}
+              {totalFiltered === 1 ? "entry" : "entries"}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold">
+                Page {safePage} of {totalPages}
+              </span>
+              <button
+                type="button"
+                disabled={safePage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                aria-label="Previous 10 audit entries"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e8edf0] bg-white text-[#14222e] transition hover:border-[#168bd0]/40 hover:text-[#168bd0] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                aria-label="Next 10 audit entries"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e8edf0] bg-white text-[#14222e] transition hover:border-[#168bd0]/40 hover:text-[#168bd0] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -60,7 +60,7 @@ function buildEmailHtml(
   return `
   <div style="font-family:Inter,'Segoe UI',sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#14222e;">
     <div style="background:linear-gradient(120deg,#092d40,#0c4560 58%,#106581);color:#fff;padding:24px;border-radius:16px 16px 0 0;">
-      <div style="font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#42d6df;">EventFlow Cebu</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#42d6df;">Book&amp;Go Cebu</div>
       <h1 style="margin:8px 0 0;font-size:20px;line-height:1.3;">${heading}</h1>
     </div>
     <div style="background:#ffffff;border:1px solid #e8edf0;border-top:0;border-radius:0 0 16px 16px;padding:24px;">
@@ -96,7 +96,7 @@ export async function sendTicketEmail(
   }
 
   const html = buildEmailHtml(params, ticketUrl, Boolean(qrBase64));
-  const from = process.env.EMAIL_FROM || "EventFlow Cebu <noreply@eventflow.local>";
+  const from = process.env.EMAIL_FROM || "Book&Go Cebu <noreply@bookandgo.local>";
 
   // Option A: Resend API
   if (process.env.RESEND_API_KEY) {
@@ -174,9 +174,51 @@ export async function sendTicketEmail(
     }
   }
 
+  // Option C: Auto Ethereal Sandbox (zero-config test inbox when USE_ETHEREAL_SANDBOX=true)
+  if (process.env.USE_ETHEREAL_SANDBOX === "true") {
+    try {
+      const testAccount = await nodemailer.createTestAccount();
+      const transporter = nodemailer.createTransport({
+        host: testAccount.smtp.host,
+        port: testAccount.smtp.port,
+        secure: testAccount.smtp.secure,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+      const info = await transporter.sendMail({
+        from,
+        to: params.to,
+        subject,
+        html,
+        attachments: qrBase64
+          ? [
+              {
+                filename: `${params.ticketCode}.png`,
+                content: Buffer.from(qrBase64, "base64"),
+                cid: "ticket-qr",
+              },
+            ]
+          : [],
+      });
+      const previewUrl = nodemailer.getTestMessageUrl(info) || undefined;
+      console.info(
+        `[Ethereal Sandbox Email Sent] To: ${params.to} | Preview: ${previewUrl}`
+      );
+      return { sent: true, provider: "ethereal", previewUrl };
+    } catch (err) {
+      return {
+        sent: false,
+        provider: "ethereal",
+        error: err instanceof Error ? err.message : "Ethereal error",
+      };
+    }
+  }
+
   // Fallback: log clearly in server console so registration never fails without SMTP keys
   console.info(
-    `[Email Preview - Configure RESEND_API_KEY or SMTP_* to deliver] To: ${params.to} | Subject: ${subject} | Ticket URL: ${ticketUrl}`
+    `[Email Preview - Configure RESEND_API_KEY, SMTP_*, or USE_ETHEREAL_SANDBOX=true to deliver] To: ${params.to} | Subject: ${subject} | Ticket URL: ${ticketUrl}`
   );
   return { sent: false, provider: "console" };
 }

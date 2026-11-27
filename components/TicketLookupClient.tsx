@@ -19,6 +19,18 @@ export function TicketLookupClient() {
   const [cancelling, setCancelling] = useState(false);
   const [cancelMessage, setCancelMessage] = useState<string | null>(null);
 
+  // Clear displayed ticket & inputs whenever the user navigates away
+  // so the next person cannot see the previous attendee's ticket
+  useEffect(() => {
+    return () => {
+      setTicketData(null);
+      setTicketCode("");
+      setContact("");
+      setError(null);
+      setCancelMessage(null);
+    };
+  }, []);
+
   const performLookup = useCallback(async (code: string, cont: string) => {
     setError(null);
     setCancelMessage(null);

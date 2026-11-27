@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -54,7 +54,23 @@ export function EventRegistrationClient({
     };
     qrDataUrl: string | null;
     emailNotice?: string;
+    emailPreviewUrl?: string;
   } | null>(null);
+
+  // Smooth 5-second auto-fade for the registration confirmation banner
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
+  const [bannerFading, setBannerFading] = useState(false);
+  const fadeTimerRef = useRef<number | null>(null);
+  const hideTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (fadeTimerRef.current) window.clearTimeout(fadeTimerRef.current);
+      if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
+      setResult(null);
+      setShowSuccessBanner(false);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -125,7 +141,27 @@ export function EventRegistrationClient({
         event: data.event,
         qrDataUrl: data.qr_data_url ?? null,
         emailNotice,
+        emailPreviewUrl: data.email_delivery?.previewUrl,
       });
+
+      // Clear form inputs immediately so another attendee can register cleanly
+      setFullName("");
+      setEmail("");
+      setMobile("");
+      setShowWaitlistForm(false);
+
+      // Show personalized confirmation banner and smoothly fade it out after 5 seconds
+      if (fadeTimerRef.current) window.clearTimeout(fadeTimerRef.current);
+      if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
+      setShowSuccessBanner(true);
+      setBannerFading(false);
+      fadeTimerRef.current = window.setTimeout(() => {
+        setBannerFading(true);
+      }, 4300);
+      hideTimerRef.current = window.setTimeout(() => {
+        setShowSuccessBanner(false);
+        setBannerFading(false);
+      }, 5000);
     } catch {
       setSubmitError("Network error. Please try again.");
     } finally {
@@ -162,11 +198,19 @@ export function EventRegistrationClient({
 
   // Success View: Show QR Ticket Pass or Waitlist Confirmation
   if (result) {
+    const firstName =
+      result.registration.full_name.trim().split(/\s+/)[0] ||
+      result.registration.full_name;
+
     return (
       <div className="mx-auto max-w-4xl space-y-4">
         <div className="flex items-center justify-between">
           <Link
             href="/"
+            onClick={() => {
+              setResult(null);
+              setShowSuccessBanner(false);
+            }}
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#72808e] hover:text-[#168bd0]"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -180,19 +224,35 @@ export function EventRegistrationClient({
           </Link>
         </div>
 
-        <div className="flex items-center gap-2.5 rounded-xl border border-[#b8efea] bg-[#e1f9f6] px-4 py-3 text-sm font-semibold text-[#057b74]">
-          <CheckCircle2 className="h-5 w-5 shrink-0" />
-          <div>
-            {result.registration.status === "waitlisted"
-              ? `You are #${result.registration.waitlist_position} on the waitlist!`
-              : "You're registered! Here is your QR ticket pass."}
-            {result.emailNotice && (
-              <div className="text-xs font-normal text-[#087b72]">
-                {result.emailNotice}
-              </div>
-            )}
+        {showSuccessBanner && (
+          <div
+            className={`flex items-center gap-2.5 rounded-xl border border-[#b8efea] bg-[#e1f9f6] px-4 py-3 text-sm font-semibold text-[#057b74] transition-opacity duration-700 ${
+              bannerFading ? "opacity-0" : "opacity-100"
+            }`}
+          >
+            <CheckCircle2 className="h-5 w-5 shrink-0" />
+            <div>
+              {result.registration.status === "waitlisted"
+                ? `You're #${result.registration.waitlist_position} on the waitlist, ${firstName}!`
+                : `You're registered, ${firstName}! Here is your QR ticket pass.`}
+              {result.emailNotice && (
+                <div className="text-xs font-normal text-[#087b72]">
+                  {result.emailNotice}{" "}
+                  {result.emailPreviewUrl && (
+                    <a
+                      href={result.emailPreviewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-bold underline"
+                    >
+                      Open Email Preview ↗
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         <TicketPassCard
           registration={result.registration}

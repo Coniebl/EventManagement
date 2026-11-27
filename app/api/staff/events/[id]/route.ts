@@ -78,3 +78,43 @@ export async function PATCH(
 
   return NextResponse.json({ ok: true, event: data.event });
 }
+
+export async function DELETE(
+  _request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  const staff = await getCurrentStaff();
+  if (!staff) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (staff.role !== "organizer") {
+    return NextResponse.json(
+      { error: "Forbidden: Only organizers can delete events." },
+      { status: 403 }
+    );
+  }
+
+  const { id } = await context.params;
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase.rpc("rpc_delete_closed_event", {
+    p_event_id: id,
+    p_staff_user_id: staff.id,
+  });
+
+  if (error) {
+    return NextResponse.json(
+      {
+        error:
+          "Failed to delete event. Make sure rpc_delete_closed_event is installed in Supabase.",
+        details: error.message,
+      },
+      { status: 500 }
+    );
+  }
+
+  if (data?.error) {
+    return NextResponse.json({ error: data.message }, { status: 400 });
+  }
+
+  return NextResponse.json({ ok: true, title: data.title });
+}
