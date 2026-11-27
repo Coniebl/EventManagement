@@ -22,6 +22,7 @@ import {
   cebuDateAndTimeToIso,
 } from "@/lib/time";
 import { CubeDatePicker } from "./CubeDatePicker";
+import { CubeTimePicker } from "./CubeTimePicker";
 import { CubeSelect } from "./CubeSelect";
 import type { DashboardEvent, EventStatus, StaffUser } from "@/lib/types";
 
@@ -607,29 +608,24 @@ export function StaffEventsClient({ staff }: { staff: StaffUser }) {
                   <label className="block text-xs font-bold text-[#14222e]">
                     Start Time *
                   </label>
-                  <input
-                    type="time"
-                    required
-                    value={form.startTime}
-                    onChange={(e) =>
-                      updateScheduleField("startTime", e.target.value)
-                    }
-                    className="mt-1 h-10 w-full rounded-xl border border-[#e8edf0] bg-[#f8fafb] px-2.5 text-xs outline-none focus:border-[#168bd0] focus:bg-white"
-                  />
+                  <div className="mt-1">
+                    <CubeTimePicker
+                      value={form.startTime}
+                      onChange={(val) => updateScheduleField("startTime", val)}
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-[#14222e]">
                     End Time *
                   </label>
-                  <input
-                    type="time"
-                    required
-                    value={form.endTime}
-                    onChange={(e) =>
-                      updateScheduleField("endTime", e.target.value)
-                    }
-                    className="mt-1 h-10 w-full rounded-xl border border-[#e8edf0] bg-[#f8fafb] px-2.5 text-xs outline-none focus:border-[#168bd0] focus:bg-white"
-                  />
+                  <div className="mt-1">
+                    <CubeTimePicker
+                      align="right"
+                      value={form.endTime}
+                      onChange={(val) => updateScheduleField("endTime", val)}
+                    />
+                  </div>
                 </div>
               </div>
 
